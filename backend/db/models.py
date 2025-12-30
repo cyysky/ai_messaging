@@ -1,6 +1,7 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean
-from backend.db.config import Base
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey
+from sqlalchemy.orm import relationship
+from db.config import Base
 
 
 class BaseModel(Base):
@@ -25,6 +26,60 @@ class User(BaseModel):
     # Profile fields
     full_name = Column(String(255), nullable=True)
     bio = Column(Text, nullable=True)
+    
+    # Session relationship
+    sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
+    user_roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan")
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+
+
+class Role(BaseModel):
+    """Role model for user permissions"""
+    __tablename__ = "roles"
+    
+    name = Column(String(100), unique=True, index=True, nullable=False)
+    description = Column(String(255), nullable=True)
+    
+    # Many-to-many relationship with users
+    user_roles = relationship("UserRole", back_populates="role", cascade="all, delete-orphan")
+
+
+class UserRole(BaseModel):
+    """Association table for user-role many-to-many relationship"""
+    __tablename__ = "user_roles"
+    
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
+    
+    user = relationship("User", back_populates="user_roles")
+    role = relationship("Role", back_populates="user_roles")
+
+
+class Session(BaseModel):
+    """Session model for managing user sessions"""
+    __tablename__ = "sessions"
+    
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    session_token = Column(String(255), unique=True, index=True, nullable=False)
+    device_info = Column(String(255), nullable=True)
+    ip_address = Column(String(50), nullable=True)
+    is_active = Column(Boolean, default=True)
+    expires_at = Column(DateTime, nullable=False)
+    
+    user = relationship("User", back_populates="sessions")
+
+
+class RefreshToken(BaseModel):
+    """Refresh token model for token refresh functionality"""
+    __tablename__ = "refresh_tokens"
+    
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token = Column(String(255), unique=True, index=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    is_used = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    user = relationship("User", back_populates="refresh_tokens")
 
 
 class Message(BaseModel):

@@ -7,7 +7,7 @@
 
 # Alembic
 alembic/*.pyc
-alembic/__pycache__/
+__pycache__/
 alembic/versions/*.pyc
 
 # SSL certificates (should not be committed)

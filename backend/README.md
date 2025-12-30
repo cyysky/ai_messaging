@@ -1,12 +1,13 @@
 # Backend Documentation
 
-A FastAPI-based backend for the AI Messaging application with SQLAlchemy ORM and Alembic migrations.
+A FastAPI-based backend for the AI Messaging application with SQLAlchemy ORM, Alembic migrations, and JWT authentication.
 
 ## Tech Stack
 
 - **Framework**: FastAPI
 - **Database**: SQLAlchemy ORM
 - **Migrations**: Alembic
+- **Authentication**: JWT (python-jose) with bcrypt password hashing
 - **Database Support**: SQLite (development), PostgreSQL (production)
 
 ## Project Structure
@@ -19,12 +20,105 @@ backend/
 │   ├── env.py            # Alembic environment configuration
 │   ├── script.py.mako    # Migration script template
 │   └── README            # Generic Alembic README
+├── auth/
+│   ├── router.py         # Authentication API endpoints
+│   ├── schemas.py        # Pydantic schemas
+│   └── utils.py          # Authentication utilities
 ├── db/
 │   ├── config.py         # Database configuration and session management
 │   └── models.py         # SQLAlchemy models
+├── tests/
+│   ├── __init__.py
+│   └── test_auth.py      # Authentication tests
 ├── main.py               # FastAPI application entry point
 ├── alembic.ini           # Alembic configuration
 └── requirements.txt      # Python dependencies
+```
+
+## Authentication System
+
+### Features
+
+- **JWT Authentication**: Access tokens (30 min) and refresh tokens (7 days)
+- **Session Management**: Track user sessions with device/IP info
+- **Password Security**: Bcrypt hashing with salt
+- **Role-Based Access**: Role-based permissions system
+- **User Management**: Full CRUD operations for users
+
+### Authentication Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/register` | POST | Register a new user |
+| `/auth/login` | POST | Login and get tokens |
+| `/auth/refresh` | POST | Refresh access token |
+| `/auth/logout` | POST | Logout (invalidate token) |
+| `/auth/logout-all` | POST | Logout from all devices |
+
+### User Endpoints
+
+| Endpoint | Method | Description | Auth |
+|----------|--------|-------------|------|
+| `/auth/me` | GET | Get current user info | Required |
+| `/auth/me` | PUT | Update current user | Required |
+| `/auth/me/password` | PUT | Change password | Required |
+
+### Admin Endpoints
+
+| Endpoint | Method | Description | Auth |
+|----------|--------|-------------|------|
+| `/auth/users` | GET | List all users | Superuser |
+| `/auth/users/{id}` | GET | Get user by ID | Superuser |
+| `/auth/users` | POST | Create user | Superuser |
+| `/auth/users/{id}` | DELETE | Delete user | Superuser |
+| `/auth/users/{id}/disable` | PUT | Disable user | Superuser |
+| `/auth/users/{id}/enable` | PUT | Enable user | Superuser |
+| `/auth/users/{id}/superuser` | PUT | Toggle superuser | Superuser |
+| `/auth/users/{id}/roles` | PUT | Assign roles | Superuser |
+| `/auth/users/{id}/roles` | GET | Get user roles | Superuser |
+
+### Session Endpoints
+
+| Endpoint | Method | Description | Auth |
+|----------|--------|-------------|------|
+| `/auth/sessions` | GET | List user sessions | Required |
+| `/auth/sessions/{id}` | DELETE | Delete session | Required |
+
+### Role Endpoints
+
+| Endpoint | Method | Description | Auth |
+|----------|--------|-------------|------|
+| `/auth/roles` | GET | List all roles | Superuser |
+| `/auth/roles` | POST | Create role | Superuser |
+| `/auth/roles/{id}` | DELETE | Delete role | Superuser |
+
+### Token Format
+
+**Access Token**:
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+  "token_type": "bearer"
+}
+```
+
+### Using Authentication
+
+```python
+import requests
+
+# Login
+response = requests.post("http://localhost:8000/auth/login", json={
+    "username": "user",
+    "password": "password"
+})
+tokens = response.json()
+access_token = tokens["access_token"]
+
+# Use token in requests
+headers = {"Authorization": f"Bearer {access_token}"}
+response = requests.get("http://localhost:8000/auth/me", headers=headers)
 ```
 
 ## Database Configuration
@@ -40,17 +134,6 @@ backend/
 - **SQLite** (development): `sqlite:///./backend.db`
 - **PostgreSQL** (production): `postgresql://user:password@host:port/dbname`
 
-### Database Configuration
-
-The database configuration is defined in [`backend/db/config.py`](backend/db/config.py:7):
-
-```python
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "sqlite:///./backend.db"  # Default to SQLite for development
-)
-```
-
 ## Models
 
 ### BaseModel
@@ -65,7 +148,7 @@ All models inherit from `BaseModel` which provides common fields:
 
 ### User Model
 
-Located in [`backend/db/models.py`](backend/db/models.py:15):
+Located in [`backend/db/models.py`](backend/db/models.py:16):
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
@@ -78,9 +161,45 @@ Located in [`backend/db/models.py`](backend/db/models.py:15):
 | `full_name` | String(255) | Nullable | User's full name |
 | `bio` | Text | Nullable | User biography |
 
-### Message Model
+### Role Model
 
-Located in [`backend/db/models.py`](backend/db/models.py:30):
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | Integer | Primary Key | Unique role identifier |
+| `name` | String(100) | Unique, Index, Not Null | Role name |
+| `description` | String(255) | Nullable | Role description |
+
+### Session Model
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | Integer | Primary Key | Unique session identifier |
+| `user_id` | Integer | Foreign Key, Not Null | User ID |
+| `session_token` | String(255) | Unique, Index, Not Null | Session token |
+| `device_info` | String(255) | Nullable | Device information |
+| `ip_address` | String(50) | Nullable | IP address |
+| `is_active` | Boolean | Default: True | Session active status |
+| `expires_at` | DateTime | Not Null | Session expiration |
+
+### RefreshToken Model
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | Integer | Primary Key | Unique token identifier |
+| `user_id` | Integer | Foreign Key, Not Null | User ID |
+| `token` | String(255) | Unique, Index, Not Null | Refresh token |
+| `expires_at` | DateTime | Not Null | Token expiration |
+| `is_used` | Boolean | Default: False | Token used status |
+
+### UserRole Model (Many-to-Many)
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | Integer | Primary Key | Unique identifier |
+| `user_id` | Integer | Foreign Key, Not Null | User ID |
+| `role_id` | Integer | Foreign Key, Not Null | Role ID |
+
+### Message Model
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
@@ -95,14 +214,6 @@ Located in [`backend/db/models.py`](backend/db/models.py:30):
 ## Alembic Migrations
 
 Alembic is used for database schema migration management.
-
-### Alembic Configuration
-
-The Alembic environment is configured in [`backend/alembic/env.py`](backend/alembic/env.py:1):
-
-- Imports models from `backend.db.models`
-- Uses `Base.metadata` from `backend.db.config`
-- Supports both offline and online migration modes
 
 ### Migration Commands
 
@@ -130,27 +241,11 @@ python -m alembic history
 
 # Downgrade to previous migration
 python -m alembic downgrade -1
-
-# Downgrade to specific revision
-python -m alembic downgrade <revision_id>
 ```
-
-### Migration Files
-
-Migrations are stored in [`backend/alembic/versions/`](backend/alembic/versions/). Each migration file contains:
-
-- `upgrade()`: Applies schema changes
-- `downgrade()`: Reverts schema changes
-
-### Initial Migration
-
-The initial migration [`753d9557b07b_initial.py`](backend/alembic/versions/753d9557b07b_initial.py:1) creates:
-- `users` table with all user fields and indexes
-- `messages` table with all message fields and indexes
 
 ## API Endpoints
 
-The FastAPI application is defined in [`backend/main.py`](backend/main.py:15):
+The FastAPI application is defined in [`backend/main.py`](backend/main.py:17):
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -177,22 +272,23 @@ The server will start on `0.0.0.0:8000` by default (configurable via environment
 | `AI_MESSAGE_SSL_CERT` | SSL certificate path | `ssl/cert.pem` |
 | `AI_MESSAGE_SSL_KEY` | SSL key path | `ssl/key.pem` |
 
-## Database Session Dependency
+## Testing
 
-Use the `get_db` dependency to access the database in your endpoints:
+### Running Tests
 
-```python
-from fastapi import Depends, FastAPI
-from sqlalchemy.orm import Session
-from backend.db.config import get_db
-from backend.db.models import User
-
-app = FastAPI()
-
-@app.get("/users")
-def get_users(db: Session = Depends(get_db)):
-    return db.query(User).all()
+```bash
+cd backend
+python -m pytest tests/test_auth.py -v
 ```
+
+### Test Coverage
+
+The test suite includes:
+- Password hashing and verification
+- JWT token creation and decoding
+- Session token generation
+- Token expiry validation
+- Authentication integration flows
 
 ## Development Setup
 
@@ -215,6 +311,12 @@ def get_users(db: Session = Depends(get_db)):
    python main.py
    ```
 
+5. Run tests:
+   ```bash
+   cd backend
+   python -m pytest tests/test_auth.py -v
+   ```
+
 ## Production Deployment
 
 For production, use PostgreSQL:
@@ -231,3 +333,11 @@ For production, use PostgreSQL:
    ```
 
 3. Start the server without SSL (use a reverse proxy like Nginx for SSL termination)
+
+## Security Notes
+
+- Change `SECRET_KEY` in [`backend/auth/utils.py`](backend/auth/utils.py:12) for production
+- Use strong passwords and enable password complexity validation
+- Set appropriate token expiration times
+- Use HTTPS in production
+- Regularly rotate refresh tokens
