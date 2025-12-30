@@ -260,10 +260,6 @@ env/
 .DS_Store
 Thumbs.db
 
-# SSL certificates (should not be committed)
-ssl/*.pem
-!ssl/cert.pem.example
-!ssl/key.pem.example
 
 # Logs
 *.log

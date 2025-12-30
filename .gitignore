@@ -9,3 +9,8 @@
 alembic/*.pyc
 alembic/__pycache__/
 alembic/versions/*.pyc
+
+# SSL certificates (should not be committed)
+ssl/*.pem
+!ssl/cert.pem.example
+!ssl/key.pem.example
