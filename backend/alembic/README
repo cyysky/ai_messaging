@@ -1,0 +1,151 @@
+# Alembic Migration Setup
+
+This directory contains Alembic migration configuration for the AI Messaging backend.
+
+## Project-Specific Configuration
+
+### Database Models
+
+Alembic is configured to track changes in the following models:
+- `User` - User accounts and authentication
+- `Message` - Messaging functionality
+
+These models are defined in [`backend/db/models.py`](../../db/models.py) and use the base configuration from [`backend/db/config.py`](../../db/config.py).
+
+### Environment Configuration
+
+The Alembic environment is configured in [`env.py`](env.py:1):
+- **Target Metadata**: `Base.metadata` from `backend.db.config`
+- **Model Imports**: Automatically imports models from `backend.db.models`
+- **Python Path**: Adds project root to `sys.path` for proper imports
+
+## Migration Workflow
+
+### 1. Creating a New Migration
+
+When you've made changes to the models:
+
+```bash
+cd backend
+python -m alembic revision --autogenerate -m "your_description"
+```
+
+This will:
+- Compare current database schema with model definitions
+- Generate a new migration file in [`versions/`](versions/)
+- Include `upgrade()` and `downgrade()` functions
+
+### 2. Applying Migrations
+
+```bash
+# Apply all pending migrations
+python -m alembic upgrade head
+
+# Apply specific migration
+python -m alembic upgrade <revision_id>
+
+# Step up one migration
+python -m alembic upgrade +1
+```
+
+### 3. Rolling Back Migrations
+
+```bash
+# Step down one migration
+python -m alembic downgrade -1
+
+# Roll back to specific revision
+python -m alembic downgrade <revision_id>
+
+# Roll back all migrations
+python -m alembic downgrade base
+```
+
+### 4. Checking Migration Status
+
+```bash
+# Show current revision
+python -m alembic current
+
+# Show migration history
+python -m alembic history
+
+# Show pending migrations
+python -m alembic heads
+```
+
+## Migration File Structure
+
+Each migration file follows this pattern:
+
+```python
+"""description
+
+Revision ID: <revision_id>
+Revises: <parent_revision_id>
+Create Date: <timestamp>
+"""
+
+from alembic import op
+import sqlalchemy as sa
+
+# revision identifiers
+revision: str = '<revision_id>'
+down_revision: Union[str, None] = '<parent_revision_id>'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+def upgrade() -> None:
+    """Apply schema changes"""
+    # Alembic commands here
+
+def downgrade() -> None:
+    """Revert schema changes"""
+    # Alembic commands here
+```
+
+## Offline Migrations
+
+For environments without a database connection (e.g., generating SQL scripts):
+
+```bash
+python -m alembic upgrade head --sql > migration.sql
+```
+
+## Best Practices
+
+1. **Review generated migrations**: Always review auto-generated migrations before applying
+2. **Meaningful descriptions**: Use descriptive migration names
+3. **Test migrations**: Test both upgrade and downgrade paths
+4. **Backup database**: Backup production database before running migrations
+5. **Version control**: Commit migration files with your code changes
+
+## Current Migrations
+
+| Revision | Description |
+|----------|-------------|
+| `753d9557b07b` | Initial migration - creates users and messages tables |
+
+## Troubleshooting
+
+### Import Errors
+
+If you see import errors, ensure:
+- You're running commands from the `backend` directory
+- Python path is correctly set in `env.py`
+- All dependencies are installed
+
+### Migration Conflicts
+
+If multiple migrations conflict:
+```bash
+# Show current heads
+python -m alembic heads
+
+# Merge branches
+python -m alembic merge heads <rev1> <rev2> -m "merge description"
+```
+
+### Database Connection Issues
+
+Verify your `DATABASE_URL` environment variable is set correctly.
