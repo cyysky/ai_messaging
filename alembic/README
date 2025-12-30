@@ -10,7 +10,7 @@ Alembic is configured to track changes in the following models:
 - `User` - User accounts and authentication
 - `Message` - Messaging functionality
 
-These models are defined in [`backend/db/models.py`](../../db/models.py) and use the base configuration from [`backend/db/config.py`](../../db/config.py).
+These models are defined in [`backend/db/models.py`](../../backend/db/models.py) and use the base configuration from [`backend/db/config.py`](../../backend/db/config.py).
 
 ### Environment Configuration
 
@@ -26,8 +26,12 @@ The Alembic environment is configured in [`env.py`](env.py:1):
 When you've made changes to the models:
 
 ```bash
-cd backend
+# From the project root directory
 python -m alembic revision --autogenerate -m "your_description"
+
+# Or from the alembic directory
+cd alembic
+PYTHONPATH=../backend python -m alembic revision --autogenerate -m "your_description"
 ```
 
 This will:
@@ -38,8 +42,11 @@ This will:
 ### 2. Applying Migrations
 
 ```bash
-# Apply all pending migrations
+# From project root
 python -m alembic upgrade head
+
+# From alembic directory
+cd alembic && python -m alembic upgrade head
 
 # Apply specific migration
 python -m alembic upgrade <revision_id>
@@ -72,6 +79,9 @@ python -m alembic history
 
 # Show pending migrations
 python -m alembic heads
+
+# Show all branches
+python -m alembic branches
 ```
 
 ## Migration File Structure
@@ -110,6 +120,9 @@ For environments without a database connection (e.g., generating SQL scripts):
 
 ```bash
 python -m alembic upgrade head --sql > migration.sql
+
+# Or from alembic directory
+cd alembic && python -m alembic upgrade head --sql > migration.sql
 ```
 
 ## Best Practices
@@ -131,9 +144,10 @@ python -m alembic upgrade head --sql > migration.sql
 ### Import Errors
 
 If you see import errors, ensure:
-- You're running commands from the `backend` directory
-- Python path is correctly set in `env.py`
-- All dependencies are installed
+- You're running commands from the project root or alembic directory
+- Python path is correctly set in `env.py` (includes `../backend`)
+- All dependencies are installed (`pip install -r backend/requirements.txt`)
+- The `DATABASE_URL` environment variable is set
 
 ### Migration Conflicts
 
@@ -148,4 +162,22 @@ python -m alembic merge heads <rev1> <rev2> -m "merge description"
 
 ### Database Connection Issues
 
-Verify your `DATABASE_URL` environment variable is set correctly.
+Verify your `DATABASE_URL` environment variable is set correctly. Check the `.env` file in the backend directory.
+
+### Migration Already Up to Date
+
+If you see "Migration already present" errors:
+```bash
+# Check current revision
+python -m alembic current
+
+# Show all revisions
+python -m alembic history --verbose
+```
+
+### Stamping Without Applying
+
+To stamp a revision without running migrations (useful for fresh databases):
+```bash
+python -m alembic stamp <revision_id>
+```

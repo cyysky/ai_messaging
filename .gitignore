@@ -5,4 +5,7 @@
 .env.local
 .env.*.local
 
-*.db
+# Alembic
+alembic/*.pyc
+alembic/__pycache__/
+alembic/versions/*.pyc
