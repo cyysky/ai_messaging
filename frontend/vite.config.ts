@@ -24,8 +24,10 @@ export default defineConfig(({ mode }) => {
       } : undefined,
       proxy: {
         '/api': {
-          target: `http://${env.AI_MESSAGE_HOST || 'localhost'}:${env.AI_MESSAGE_PORT || '8000'}`,
-          changeOrigin: true
+          target: `https://${env.AI_MESSAGE_HOST || 'localhost'}:${env.AI_MESSAGE_PORT || '8000'}`,
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api/, '')
         }
       }
     }

@@ -9,8 +9,8 @@
           <v-card-text>
             <v-form ref="form" v-model="valid" @submit.prevent="handleRegister">
               <v-text-field
-                v-model="name"
-                label="Name"
+                v-model="username"
+                label="Username"
                 prepend-icon="mdi-account"
                 :rules="[rules.required]"
                 required
@@ -75,7 +75,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const valid = ref(false)
-const name = ref('')
+const username = ref('')
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
@@ -94,7 +94,7 @@ async function handleRegister() {
   if (!valid.value) return
   
   const success = await authStore.register({
-    name: name.value,
+    username: username.value,
     email: email.value,
     password: password.value,
   })

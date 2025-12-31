@@ -9,11 +9,10 @@
           <v-card-text>
             <v-form ref="form" v-model="valid" @submit.prevent="handleLogin">
               <v-text-field
-                v-model="email"
-                label="Email"
-                type="email"
-                prepend-icon="mdi-email"
-                :rules="[rules.required, rules.email]"
+                v-model="username"
+                label="Username"
+                prepend-icon="mdi-account"
+                :rules="[rules.required]"
                 required
               ></v-text-field>
               <v-text-field
@@ -60,7 +59,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const valid = ref(false)
-const email = ref('')
+const username = ref('')
 const password = ref('')
 const showPassword = ref(false)
 
@@ -68,14 +67,13 @@ const showSnackbar = inject<(message: string, color?: string) => void>('showSnac
 
 const rules = {
   required: (v: string) => !!v || 'Required',
-  email: (v: string) => /.+@.+\..+/.test(v) || 'E-mail must be valid',
 }
 
 async function handleLogin() {
   if (!valid.value) return
   
   const success = await authStore.login({
-    email: email.value,
+    username: username.value,
     password: password.value,
   })
   
