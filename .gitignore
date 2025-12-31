@@ -17,3 +17,5 @@ ssl/*.pem
 
 *.db
 .venv
+
+*.log
