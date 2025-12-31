@@ -26,6 +26,7 @@ class User(BaseModel):
     # Profile fields
     full_name = Column(String(255), nullable=True)
     bio = Column(Text, nullable=True)
+    phone_number = Column(String(20), unique=True, index=True, nullable=True)
     
     # Session relationship
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")

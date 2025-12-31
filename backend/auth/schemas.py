@@ -9,11 +9,13 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     full_name: Optional[str] = None
+    phone_number: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     bio: Optional[str] = None
+    phone_number: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -22,6 +24,7 @@ class UserResponse(BaseModel):
     email: str
     full_name: Optional[str]
     bio: Optional[str]
+    phone_number: Optional[str]
     is_active: bool
     is_superuser: bool
     created_at: datetime

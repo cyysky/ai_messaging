@@ -45,7 +45,8 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
         username=user_data.username,
         email=user_data.email,
         hashed_password=get_password_hash(user_data.password),
-        full_name=user_data.full_name
+        full_name=user_data.full_name,
+        phone_number=user_data.phone_number
     )
     
     try:
@@ -238,6 +239,8 @@ async def update_current_user(
         current_user.full_name = user_data.full_name
     if user_data.bio is not None:
         current_user.bio = user_data.bio
+    if user_data.phone_number is not None:
+        current_user.phone_number = user_data.phone_number
     
     db.commit()
     db.refresh(current_user)
@@ -321,7 +324,8 @@ async def create_user(
         username=user_data.username,
         email=user_data.email,
         hashed_password=get_password_hash(user_data.password),
-        full_name=user_data.full_name
+        full_name=user_data.full_name,
+        phone_number=user_data.phone_number
     )
     
     db.add(user)
