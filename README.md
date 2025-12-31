@@ -13,6 +13,9 @@ git push -u origin main
 
 ## Application Setup
 
+uv venv --python 3.13 .venv
+source .venv/bin/activate
+
 1. Copy `.env.example` to `.env` and configure:
    ```bash
    cp .env.example .env

@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, path.resolve(__dirname, '..'), '')
   
   const port = parseInt(env.AI_MESSAGE_FRONTEND_PORT || '3000', 10)
+  const host = env.AI_MESSAGE_FRONTEND_HOST || 'localhost'
   const useSSL = env.AI_MESSAGE_FRONTEND_SSL === 'true'
   
   return {
@@ -17,6 +18,7 @@ export default defineConfig(({ mode }) => {
       }
     },
     server: {
+      host,
       port,
       https: useSSL ? {
         cert: env.AI_MESSAGE_SSL_CERT,
