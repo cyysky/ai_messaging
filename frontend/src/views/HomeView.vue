@@ -13,10 +13,13 @@
             <v-divider class="my-4"></v-divider>
             <v-row>
               <v-col cols="12" md="4">
-                <v-card color="primary" variant="tonal">
-                  <v-card-text>
-                    <div class="text-h4">{{ stats.users }}</div>
-                    <div class="text-subtitle-2">Total Users</div>
+                <v-card color="primary" variant="tonal" to="/conversations" hover>
+                  <v-card-text class="d-flex align-center">
+                    <v-icon size="32" class="mr-3">mdi-message-text</v-icon>
+                    <div>
+                      <div class="text-h5">Messages</div>
+                      <div class="text-subtitle-2">View conversations</div>
+                    </div>
                   </v-card-text>
                 </v-card>
               </v-col>

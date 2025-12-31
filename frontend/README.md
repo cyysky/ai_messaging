@@ -107,9 +107,10 @@ frontend/
 │   ├── stores/            # Pinia stores
 │   │   └── auth.ts        # Authentication store
 │   ├── views/             # Page components
-│   │   ├── HomeView.vue       # Dashboard/home page
-│   │   ├── LoginView.vue      # Login page
-│   │   └── RegisterView.vue   # Registration page
+│   │   ├── HomeView.vue           # Dashboard/home page
+│   │   ├── LoginView.vue          # Login page
+│   │   ├── RegisterView.vue       # Registration page
+│   │   └── ConversationsView.vue  # Messages/Conversations page
 │   ├── App.vue            # Root component
 │   ├── env.d.ts           # TypeScript declarations
 │   ├── main.ts            # Application entry point
@@ -228,6 +229,25 @@ The `authService` object provides the following methods:
 - `login(data: LoginRequest)`: Authenticate user and get token
 - `register(data: RegisterRequest)`: Register new user
 - `getCurrentUser()`: Get current user information
+- `getConversations()`: Get all conversations for current user
+- `getConversationMessages(conversationId, skip, limit)`: Get messages for a conversation
+- `sendMessage(conversationId, data)`: Send a message in a conversation
+- `markConversationRead(conversationId)`: Mark all messages in a conversation as read
+
+### Message Service Methods
+
+The `messageService` object provides full CRUD operations for messages:
+
+- `listMessages(skip, limit, unreadOnly)`: List all messages with optional filters
+- `getMessage(messageId)`: Get a specific message by ID
+- `createMessage(data)`: Send a new message
+- `updateMessage(messageId, data)`: Update message content (sender only)
+- `deleteMessage(messageId)`: Delete a message
+- `markAsRead(messageId)`: Mark a message as read (recipient only)
+- `getUnreadCount()`: Get count of unread messages
+- `markAllAsRead()`: Mark all received messages as read
+- `listSentMessages(skip, limit)`: List sent messages
+- `listReceivedMessages(skip, limit, unreadOnly)`: List received messages
 
 ## Authentication
 

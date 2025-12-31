@@ -3,6 +3,10 @@
     <v-app-bar color="primary" density="compact" v-if="authStore.isAuthenticated">
       <v-app-bar-title>My App</v-app-bar-title>
       <v-spacer></v-spacer>
+      <v-btn to="/conversations" variant="text">
+        <v-icon left>mdi-message-text</v-icon>
+        Conversations
+      </v-btn>
       <v-btn to="/" variant="text">Home</v-btn>
       <v-btn @click="logout" variant="text">Logout</v-btn>
     </v-app-bar>

@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/auth'
 import HomeView from '@/views/HomeView.vue'
 import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
+import ConversationsView from '@/views/ConversationsView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -11,6 +12,12 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: HomeView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/conversations',
+      name: 'conversations',
+      component: ConversationsView,
       meta: { requiresAuth: true },
     },
     {

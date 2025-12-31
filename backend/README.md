@@ -93,6 +93,30 @@ backend/
 | `/auth/roles` | POST | Create role | Superuser |
 | `/auth/roles/{id}` | DELETE | Delete role | Superuser |
 
+### Conversation Endpoints
+
+| Endpoint | Method | Description | Auth |
+|----------|--------|-------------|------|
+| `/auth/conversations` | GET | List all conversations | Required |
+| `/auth/conversations/{id}/messages` | GET | Get conversation messages | Required |
+| `/auth/conversations/{id}/messages` | POST | Send message | Required |
+| `/auth/conversations/{id}/read` | PUT | Mark conversation read | Required |
+
+### Message Endpoints
+
+| Endpoint | Method | Description | Auth |
+|----------|--------|-------------|------|
+| `/messages` | GET | List all messages | Required |
+| `/messages/sent` | GET | List sent messages | Required |
+| `/messages/received` | GET | List received messages | Required |
+| `/messages/{id}` | GET | Get specific message | Required |
+| `/messages` | POST | Send new message | Required |
+| `/messages/{id}` | PUT | Update message | Required |
+| `/messages/{id}/read` | PUT | Mark as read | Required |
+| `/messages/{id}` | DELETE | Delete message | Required |
+| `/messages/unread/count` | GET | Get unread count | Required |
+| `/messages/read-all` | PUT | Mark all as read | Required |
+
 ### Token Format
 
 **Access Token**:
