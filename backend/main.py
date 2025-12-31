@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 from fastapi import FastAPI, Depends, Request
 from fastapi.responses import JSONResponse
@@ -6,6 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import uvicorn
 from sqlalchemy.orm import Session
+
+# Add the backend directory to the path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from db.config import get_db, engine
 from db.models import Base
