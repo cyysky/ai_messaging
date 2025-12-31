@@ -27,6 +27,7 @@ A modern frontend application built with Vue.js 3, TypeScript, Vuetify 3, and Vi
 - **API Integration**: Axios-based HTTP client with interceptors
 - **Material Design Icons**: MDI icon set integration
 - **Dark/Light Themes**: Built-in theme support
+- **User Management**: Admin interface for managing users (superuser only)
 
 ## Prerequisites
 
@@ -110,7 +111,8 @@ frontend/
 │   │   ├── HomeView.vue           # Dashboard/home page
 │   │   ├── LoginView.vue          # Login page
 │   │   ├── RegisterView.vue       # Registration page
-│   │   └── ConversationsView.vue  # Messages/Conversations page
+│   │   ├── ConversationsView.vue  # Messages/Conversations page
+│   │   └── UserManagementView.vue # User Management (superuser only)
 │   ├── App.vue            # Root component
 │   ├── env.d.ts           # TypeScript declarations
 │   ├── main.ts            # Application entry point
@@ -226,13 +228,25 @@ api.interceptors.response.use(
 
 The `authService` object provides the following methods:
 
-- `login(data: LoginRequest)`: Authenticate user and get token
+- `login(data: LoginRequest)`: Authenticate user and get token (returns AuthResponse with user data)
 - `register(data: RegisterRequest)`: Register new user
 - `getCurrentUser()`: Get current user information
 - `getConversations()`: Get all conversations for current user
 - `getConversationMessages(conversationId, skip, limit)`: Get messages for a conversation
 - `sendMessage(conversationId, data)`: Send a message in a conversation
 - `markConversationRead(conversationId)`: Mark all messages in a conversation as read
+
+### User Service Methods
+
+The `userService` object provides user management operations (superuser only):
+
+- `listUsers(skip, limit)`: List all users
+- `getUser(userId)`: Get a specific user
+- `createUser(data)`: Create a new user
+- `deleteUser(userId)`: Delete a user
+- `disableUser(userId)`: Disable a user
+- `enableUser(userId)`: Enable a user
+- `toggleSuperuser(userId, isSuperuser)`: Toggle superuser status
 
 ### Message Service Methods
 
@@ -263,6 +277,7 @@ export const useAuthStore = defineStore('auth', () => {
   const error = ref<string | null>(null)
 
   const isAuthenticated = computed(() => !!token.value)
+  const isSuperuser = computed(() => user.value?.is_superuser ?? false)
 
   async function login(data: LoginRequest) { ... }
   async function register(data: RegisterRequest) { ... }
@@ -279,6 +294,25 @@ The store maintains:
 - **loading**: Loading state for async operations
 - **error**: Error messages
 
+### Superuser Access
+
+The auth store provides an `isSuperuser` computed property that checks if the current user has superuser privileges:
+
+```typescript
+const isSuperuser = computed(() => user.value?.is_superuser ?? false)
+```
+
+This is used in the dashboard to conditionally show the User Management link:
+
+```vue
+<v-btn v-if="authStore.isSuperuser" to="/users" variant="text">
+  <v-icon left>mdi-account-group</v-icon>
+  Users
+</v-btn>
+```
+
+The User Management route (`/users`) is protected by both authentication and superuser checks in the router.
+
 ### Usage
 
 ```typescript
@@ -291,9 +325,14 @@ if (authStore.isAuthenticated) {
   // User is logged in
 }
 
+// Check if superuser
+if (authStore.isSuperuser) {
+  // User has admin privileges
+}
+
 // Login
 const success = await authStore.login({
-  email: 'user@example.com',
+  username: 'user',
   password: 'password123'
 })
 
@@ -307,7 +346,7 @@ authStore.logout()
 
 The project uses Pinia for state management. Currently implemented:
 
-- **auth.ts**: Authentication state (token, user, login/register/logout)
+- **auth.ts**: Authentication state (token, user, login/register/logout, isSuperuser)
 
 ### Store Structure
 
@@ -348,6 +387,18 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/conversations',
+      name: 'conversations',
+      component: ConversationsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/users',
+      name: 'users',
+      component: UserManagementView,
+      meta: { requiresAuth: true, requiresSuperuser: true },
+    },
+    {
       path: '/login',
       name: 'login',
       component: LoginView,
@@ -375,6 +426,8 @@ router.beforeEach((to, _from, next) => {
     next('/login')
   } else if (to.meta.guest && authStore.isAuthenticated) {
     next('/')
+  } else if (to.meta.requiresSuperuser && !authStore.isSuperuser) {
+    next('/')
   } else {
     next()
   }
@@ -385,6 +438,74 @@ router.beforeEach((to, _from, next) => {
 
 - `requiresAuth`: Route requires authentication
 - `guest`: Route is only for guests (not authenticated users)
+- `requiresSuperuser`: Route requires superuser privileges
+
+### Superuser Routes
+
+Routes that require superuser access should include the `requiresSuperuser` meta field:
+
+```typescript
+{
+  path: '/users',
+  name: 'users',
+  component: UserManagementView,
+  meta: { requiresAuth: true, requiresSuperuser: true },
+}
+```
+
+The router guard checks this and redirects non-superusers:
+
+```typescript
+} else if (to.meta.requiresSuperuser && !authStore.isSuperuser) {
+  next('/')
+}
+```
+
+## User Management (Superuser)
+
+The User Management view provides a complete interface for managing users:
+
+### Features
+
+- **User List**: View all users with search functionality
+- **User Status**: See active/disabled status
+- **User Roles**: Identify superusers vs regular users
+- **Create User**: Add new users with username, email, password
+- **Disable/Enable**: Toggle user account status
+- **Toggle Superuser**: Grant or revoke admin privileges
+- **Delete User**: Remove users (cannot delete self)
+
+### Accessing User Management
+
+The User Management link appears in the navigation bar only for superusers:
+
+```vue
+<v-btn v-if="authStore.isSuperuser" to="/users" variant="text">
+  <v-icon left>mdi-account-group</v-icon>
+  Users
+</v-btn>
+```
+
+### User Table Columns
+
+| Column | Description |
+|--------|-------------|
+| Username | User's unique username |
+| Email | User's email address |
+| Full Name | User's full name (optional) |
+| Status | Active or Disabled |
+| Role | Superuser or User |
+| Created | Account creation date |
+| Actions | Management buttons |
+
+### Actions
+
+| Action | Description | Restrictions |
+|--------|-------------|--------------|
+| Disable | Disable user account | Cannot disable self |
+| Enable | Enable disabled account | - |
+| Toggle Superuser | Grant/remove admin | Cannot change self |
+| Delete | Permanently delete user | Cannot delete self |
 
 ## Customization
 
@@ -491,6 +612,13 @@ If you get "Cannot find module" errors:
 1. Ensure the backend server is running
 2. Check the proxy configuration in `vite.config.ts`
 3. Verify the API endpoints match the backend routes
+
+### User Management Not Visible
+
+If the User Management link doesn't appear in the navigation:
+1. Ensure you are logged in as a superuser
+2. Check that the backend login returns user data with `is_superuser: true`
+3. Verify the auth store is properly initialized with user data
 
 ## License
 

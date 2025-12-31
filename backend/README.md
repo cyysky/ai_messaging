@@ -117,16 +117,31 @@ backend/
 | `/messages/unread/count` | GET | Get unread count | Required |
 | `/messages/read-all` | PUT | Mark all as read | Required |
 
-### Token Format
+### Login Response (AuthResponse)
 
-**Access Token**:
+The `/auth/login` endpoint returns an `AuthResponse` that includes both tokens and user information:
+
 ```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIs...",
   "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
-  "token_type": "bearer"
+  "token_type": "bearer",
+  "user": {
+    "id": 1,
+    "username": "admin",
+    "email": "admin@example.com",
+    "full_name": "Admin User",
+    "bio": null,
+    "phone_number": null,
+    "is_active": true,
+    "is_superuser": true,
+    "created_at": "2025-01-01T00:00:00",
+    "updated_at": "2025-01-01T00:00:00"
+  }
 }
 ```
+
+The `user` object in the response includes the `is_superuser` field, which the frontend uses to determine if the user has access to the User Management dashboard.
 
 ### Using Authentication
 
