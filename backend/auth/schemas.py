@@ -50,6 +50,13 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
+class AuthResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
 class TokenPayload(BaseModel):
     sub: int
     username: str

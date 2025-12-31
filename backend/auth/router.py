@@ -12,7 +12,7 @@ from auth.schemas import (
     UserCreate, UserUpdate, UserResponse, LoginRequest, Token,
     ChangePasswordRequest, SessionResponse, RoleCreate, RoleResponse,
     UserRoleAssign, RefreshTokenRequest, MessageCreate, MessageResponse,
-    ConversationResponse
+    ConversationResponse, AuthResponse
 )
 from auth.utils import (
     verify_password, get_password_hash, create_access_token, create_refresh_token,
@@ -73,7 +73,7 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     return user
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=AuthResponse)
 async def login(
     login_data: LoginRequest,
     request: Request,
@@ -124,10 +124,11 @@ async def login(
     
     auth_logger.info(f"User logged in successfully: {login_data.username} (IP: {client_host})")
     
-    return Token(
+    return AuthResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        token_type="bearer"
+        token_type="bearer",
+        user=user
     )
 
 

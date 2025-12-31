@@ -4,6 +4,7 @@ import HomeView from '@/views/HomeView.vue'
 import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
 import ConversationsView from '@/views/ConversationsView.vue'
+import UserManagementView from '@/views/UserManagementView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -19,6 +20,12 @@ const router = createRouter({
       name: 'conversations',
       component: ConversationsView,
       meta: { requiresAuth: true },
+    },
+    {
+      path: '/users',
+      name: 'users',
+      component: UserManagementView,
+      meta: { requiresAuth: true, requiresSuperuser: true },
     },
     {
       path: '/login',
@@ -41,6 +48,8 @@ router.beforeEach((to, _from, next) => {
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/login')
   } else if (to.meta.guest && authStore.isAuthenticated) {
+    next('/')
+  } else if (to.meta.requiresSuperuser && !authStore.isSuperuser) {
     next('/')
   } else {
     next()

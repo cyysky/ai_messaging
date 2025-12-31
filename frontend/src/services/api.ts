@@ -38,14 +38,23 @@ export interface RegisterRequest {
   password: string
 }
 
+export interface UserResponse {
+  id: number
+  username: string
+  email: string
+  full_name: string | null
+  bio: string | null
+  phone_number: string | null
+  is_active: boolean
+  is_superuser: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface AuthResponse {
   access_token: string
   token_type: string
-  user: {
-    id: number
-    email: string
-    name: string
-  }
+  user: UserResponse
 }
 
 export interface MessageResponse {
@@ -144,8 +153,8 @@ export const authService = {
     return response.data
   },
 
-  async getCurrentUser() {
-    const response = await api.get('/auth/me')
+  async getCurrentUser(): Promise<UserResponse> {
+    const response = await api.get<UserResponse>('/auth/me')
     return response.data
   },
 
@@ -168,6 +177,41 @@ export const authService = {
 
   async markConversationRead(conversationId: string): Promise<void> {
     await api.put(`/auth/conversations/${conversationId}/read`)
+  },
+}
+
+export const userService = {
+  async listUsers(skip = 0, limit = 100): Promise<UserResponse[]> {
+    const response = await api.get<UserResponse[]>('/auth/users', {
+      params: { skip, limit }
+    })
+    return response.data
+  },
+
+  async getUser(userId: number): Promise<UserResponse> {
+    const response = await api.get<UserResponse>(`/auth/users/${userId}`)
+    return response.data
+  },
+
+  async createUser(data: RegisterRequest & { password: string }): Promise<UserResponse> {
+    const response = await api.post<UserResponse>('/auth/users', data)
+    return response.data
+  },
+
+  async deleteUser(userId: number): Promise<void> {
+    await api.delete(`/auth/users/${userId}`)
+  },
+
+  async disableUser(userId: number): Promise<void> {
+    await api.put(`/auth/users/${userId}/disable`)
+  },
+
+  async enableUser(userId: number): Promise<void> {
+    await api.put(`/auth/users/${userId}/enable`)
+  },
+
+  async toggleSuperuser(userId: number, isSuperuser: boolean): Promise<void> {
+    await api.put(`/auth/users/${userId}/superuser`, { is_superuser: isSuperuser })
   },
 }
 

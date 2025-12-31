@@ -7,6 +7,10 @@
         <v-icon left>mdi-message-text</v-icon>
         Conversations
       </v-btn>
+      <v-btn v-if="authStore.isSuperuser" to="/users" variant="text">
+        <v-icon left>mdi-account-group</v-icon>
+        Users
+      </v-btn>
       <v-btn to="/" variant="text">Home</v-btn>
       <v-btn @click="logout" variant="text">Logout</v-btn>
     </v-app-bar>

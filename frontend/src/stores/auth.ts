@@ -2,10 +2,17 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authService, type LoginRequest, type RegisterRequest, type AuthResponse } from '@/services/api'
 
-interface User {
+export interface User {
   id: number
   email: string
-  name: string
+  username: string
+  is_superuser: boolean
+  is_active: boolean
+  full_name: string | null
+  bio: string | null
+  phone_number: string | null
+  created_at: string
+  updated_at: string
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -15,6 +22,7 @@ export const useAuthStore = defineStore('auth', () => {
   const error = ref<string | null>(null)
 
   const isAuthenticated = computed(() => !!token.value)
+  const isSuperuser = computed(() => user.value?.is_superuser ?? false)
 
   async function login(data: LoginRequest) {
     loading.value = true
@@ -84,6 +92,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     error,
     isAuthenticated,
+    isSuperuser,
     login,
     register,
     logout,
