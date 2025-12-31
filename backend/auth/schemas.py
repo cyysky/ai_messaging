@@ -106,5 +106,38 @@ class ResetPasswordRequest(BaseModel):
 
 
 # Message schemas
+class MessageCreate(BaseModel):
+    recipient_id: int
+    content: str
+    conversation_id: Optional[str] = None
+
+
+class MessageUpdate(BaseModel):
+    content: Optional[str] = None
+
+
+class MessageResponse(BaseModel):
+    id: int
+    sender_id: int
+    recipient_id: int
+    content: str
+    is_read: bool
+    conversation_id: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ConversationResponse(BaseModel):
+    conversation_id: str
+    other_user_id: int
+    other_user_name: str
+    last_message: str
+    last_message_at: datetime
+    unread_count: int
+
+
 class Message(BaseModel):
     detail: str

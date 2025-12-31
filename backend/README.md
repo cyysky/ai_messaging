@@ -31,6 +31,7 @@ backend/
 │   ├── __init__.py
 │   └── test_auth.py      # Authentication tests
 ├── main.py               # FastAPI application entry point
+├── init_logs.py          # Logging configuration
 ├── alembic.ini           # Alembic configuration
 └── requirements.txt      # Python dependencies
 ```
@@ -333,6 +334,36 @@ For production, use PostgreSQL:
    ```
 
 3. Start the server without SSL (use a reverse proxy like Nginx for SSL termination)
+
+## Logging
+
+The application uses a centralized logging module [`backend/init_logs.py`](backend/init_logs.py:1) that provides configured loggers for all modules.
+
+### Log Files
+
+| Logger | Log File | Description |
+|--------|----------|-------------|
+| `auth` | `logs/auth.log` | Authentication events |
+| `twilio_webhook` | `logs/twilio_webhook.log` | Twilio webhook events |
+| `messages` | `logs/messages.log` | Message operations |
+
+### Configuration
+
+Logs are stored in the folder specified by `AI_MESSAGE_LOGS_FOLDER` environment variable (default: `logs`). Each log file:
+- Maximum 1MB per file
+- Up to 50 backup files (50MB total)
+- Timestamped entries with logger name and level
+
+### Using Loggers
+
+```python
+from init_logs import messages_logger
+
+# Log messages
+messages_logger.info("User sent a message")
+messages_logger.error("Failed to send message")
+messages_logger.warning("Message rate limit approaching")
+```
 
 ## Security Notes
 

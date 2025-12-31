@@ -1,8 +1,6 @@
 import os
 import sys
 import json
-import logging
-from logging.handlers import RotatingFileHandler
 from datetime import datetime
 from fastapi import FastAPI, Depends, Request
 from fastapi.responses import JSONResponse
@@ -17,42 +15,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from db.config import get_db, engine
 from db.models import Base, User, Message
 from auth.router import router as auth_router
+from messages.router import router as messages_router
+from init_logs import auth_logger, twilio_logger
 
 load_dotenv()
-
-# Configure logging for auth module
-logs_folder = os.getenv("AI_MESSAGE_LOGS_FOLDER", "logs")
-logs_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), logs_folder)
-os.makedirs(logs_path, exist_ok=True)
-
-auth_logger = logging.getLogger("auth")
-auth_logger.setLevel(logging.INFO)
-
-# Rotating file handler: max 50MB total (50 files x 1MB each)
-auth_handler = RotatingFileHandler(
-    os.path.join(logs_path, "auth.log"),
-    maxBytes=1 * 1024 * 1024,  # 1MB per file
-    backupCount=50  # 50 files = 50MB max
-)
-auth_handler.setFormatter(logging.Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-))
-auth_logger.addHandler(auth_handler)
-
-# Configure logging for twilio_webhook module
-twilio_logger = logging.getLogger("twilio_webhook")
-twilio_logger.setLevel(logging.INFO)
-
-# Rotating file handler: max 50MB total (50 files x 1MB each)
-twilio_handler = RotatingFileHandler(
-    os.path.join(logs_path, "twilio_webhook.log"),
-    maxBytes=1 * 1024 * 1024,  # 1MB per file
-    backupCount=50  # 50 files = 50MB max
-)
-twilio_handler.setFormatter(logging.Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-))
-twilio_logger.addHandler(twilio_handler)
 
 # Create tables on startup
 Base.metadata.create_all(bind=engine)
@@ -74,6 +40,9 @@ app.add_middleware(
 
 # Include auth router
 app.include_router(auth_router)
+
+# Include messages router
+app.include_router(messages_router)
 
 @app.get("/")
 async def root():

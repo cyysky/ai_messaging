@@ -4,13 +4,15 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 
 from db.config import get_db
-from db.models import User, Session as UserSession, RefreshToken, Role, UserRole
+from db.models import User, Session as UserSession, RefreshToken, Role, UserRole, Message
 from auth.schemas import (
     UserCreate, UserUpdate, UserResponse, LoginRequest, Token,
     ChangePasswordRequest, SessionResponse, RoleCreate, RoleResponse,
-    UserRoleAssign, RefreshTokenRequest
+    UserRoleAssign, RefreshTokenRequest, MessageCreate, MessageResponse,
+    ConversationResponse
 )
 from auth.utils import (
     verify_password, get_password_hash, create_access_token, create_refresh_token,
@@ -595,3 +597,125 @@ async def get_user_roles(
     roles = [ur.role for ur in user_roles if ur.role]
     
     return roles
+
+
+# ==================== CONVERSATIONS ====================
+
+@router.get("/conversations", response_model=list[ConversationResponse])
+async def get_conversations(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all conversations for the current user"""
+    # Get all unique conversation IDs where user is sender or recipient
+    conversations = db.query(
+        Message.conversation_id,
+        func.max(Message.created_at).label('last_message_at')
+    ).filter(
+        (Message.sender_id == current_user.id) | (Message.recipient_id == current_user.id)
+    ).group_by(Message.conversation_id).all()
+    
+    result = []
+    for conv in conversations:
+        # Get the last message in this conversation
+        last_msg = db.query(Message).filter(
+            Message.conversation_id == conv.conversation_id
+        ).order_by(Message.created_at.desc()).first()
+        
+        if not last_msg:
+            continue
+        
+        # Determine the other user
+        if last_msg.sender_id == current_user.id:
+            other_user_id = last_msg.recipient_id
+        else:
+            other_user_id = last_msg.sender_id
+        
+        other_user = db.query(User).filter(User.id == other_user_id).first()
+        other_user_name = other_user.username if other_user else "Unknown"
+        
+        # Count unread messages
+        unread_count = db.query(Message).filter(
+            Message.conversation_id == conv.conversation_id,
+            Message.recipient_id == current_user.id,
+            Message.is_read == False
+        ).count()
+        
+        result.append(ConversationResponse(
+            conversation_id=conv.conversation_id,
+            other_user_id=other_user_id,
+            other_user_name=other_user_name,
+            last_message=last_msg.content[:100] if last_msg.content else "",
+            last_message_at=last_msg.created_at,
+            unread_count=unread_count
+        ))
+    
+    # Sort by last message time, most recent first
+    result.sort(key=lambda x: x.last_message_at, reverse=True)
+    return result
+
+
+@router.get("/conversations/{conversation_id}/messages", response_model=list[MessageResponse])
+async def get_conversation_messages(
+    conversation_id: str,
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get messages for a specific conversation"""
+    # Verify user is part of this conversation
+    messages = db.query(Message).filter(
+        Message.conversation_id == conversation_id,
+        ((Message.sender_id == current_user.id) | (Message.recipient_id == current_user.id))
+    ).order_by(Message.created_at.desc()).offset(skip).limit(limit).all()
+    
+    return messages[::-1]  # Reverse to get chronological order
+
+
+@router.post("/conversations/{conversation_id}/messages", response_model=MessageResponse)
+async def send_message(
+    conversation_id: str,
+    message_data: MessageCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Send a message in a conversation"""
+    # Verify recipient exists
+    recipient = db.query(User).filter(User.id == message_data.recipient_id).first()
+    if not recipient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Recipient not found"
+        )
+    
+    message = Message(
+        sender_id=current_user.id,
+        recipient_id=message_data.recipient_id,
+        content=message_data.content,
+        conversation_id=conversation_id
+    )
+    
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+    
+    return message
+
+
+@router.put("/conversations/{conversation_id}/read")
+async def mark_conversation_read(
+    conversation_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Mark all messages in a conversation as read"""
+    db.query(Message).filter(
+        Message.conversation_id == conversation_id,
+        Message.recipient_id == current_user.id,
+        Message.is_read == False
+    ).update({"is_read": True})
+    
+    db.commit()
+    
+    return {"message": "Conversation marked as read"}
