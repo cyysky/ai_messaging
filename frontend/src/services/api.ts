@@ -215,4 +215,77 @@ export const userService = {
   },
 }
 
+export interface ReportResponse {
+  id: number
+  reporter_id: number
+  reporter_username: string | null
+  title: string
+  content: string
+  status: string
+  comment: string | null
+  resolved_at: string | null
+  resolved_by: number | null
+  resolver_username: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ReportCreate {
+  title: string
+  content: string
+}
+
+export interface ReportUpdate {
+  title?: string
+  content?: string
+}
+
+export interface ReportCommentRequest {
+  comment: string
+  status?: string
+}
+
+export const reportService = {
+  // User endpoints
+  async createReport(data: ReportCreate): Promise<ReportResponse> {
+    const response = await api.post<ReportResponse>('/reports', data)
+    return response.data
+  },
+
+  async getMyReports(statusFilter?: string): Promise<ReportResponse[]> {
+    const response = await api.get<ReportResponse[]>('/reports', {
+      params: { status_filter: statusFilter }
+    })
+    return response.data
+  },
+
+  async getReport(reportId: number): Promise<ReportResponse> {
+    const response = await api.get<ReportResponse>(`/reports/${reportId}`)
+    return response.data
+  },
+
+  async updateReport(reportId: number, data: ReportUpdate): Promise<ReportResponse> {
+    const response = await api.put<ReportResponse>(`/reports/${reportId}`, data)
+    return response.data
+  },
+
+  // Superuser endpoints
+  async getAllReports(statusFilter?: string): Promise<ReportResponse[]> {
+    const response = await api.get<ReportResponse[]>('/reports/admin/all', {
+      params: { status_filter: statusFilter }
+    })
+    return response.data
+  },
+
+  async addReportComment(reportId: number, data: ReportCommentRequest): Promise<ReportResponse> {
+    const response = await api.post<ReportResponse>(`/reports/${reportId}/comment`, data)
+    return response.data
+  },
+
+  async resolveReport(reportId: number, comment?: string): Promise<ReportResponse> {
+    const response = await api.put<ReportResponse>(`/reports/${reportId}/resolve`, { comment })
+    return response.data
+  },
+}
+
 export default api

@@ -7,6 +7,14 @@
         <v-icon left>mdi-message-text</v-icon>
         Conversations
       </v-btn>
+      <v-btn to="/reports" variant="text">
+        <v-icon left>mdi-clipboard-text</v-icon>
+        My Reports
+      </v-btn>
+      <v-btn v-if="authStore.isSuperuser" to="/admin/reports" variant="text">
+        <v-icon left>mdi-shield-crown</v-icon>
+        Manage Reports
+      </v-btn>
       <v-btn v-if="authStore.isSuperuser" to="/users" variant="text">
         <v-icon left>mdi-account-group</v-icon>
         Users

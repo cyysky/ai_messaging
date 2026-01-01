@@ -5,6 +5,8 @@ import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
 import ConversationsView from '@/views/ConversationsView.vue'
 import UserManagementView from '@/views/UserManagementView.vue'
+import UserReportView from '@/views/UserReportView.vue'
+import SuperuserReportView from '@/views/SuperuserReportView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -25,6 +27,18 @@ const router = createRouter({
       path: '/users',
       name: 'users',
       component: UserManagementView,
+      meta: { requiresAuth: true, requiresSuperuser: true },
+    },
+    {
+      path: '/reports',
+      name: 'reports',
+      component: UserReportView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/reports',
+      name: 'admin-reports',
+      component: SuperuserReportView,
       meta: { requiresAuth: true, requiresSuperuser: true },
     },
     {
