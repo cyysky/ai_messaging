@@ -101,6 +101,21 @@ All models inherit from `BaseModel` which provides:
 | `created_at` | DateTime | Not Null | Creation timestamp |
 | `updated_at` | DateTime | Not Null | Last update timestamp |
 
+### Reports Table
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | Integer | Primary Key | Unique report identifier |
+| `reporter_id` | Integer | Foreign Key, Not Null | Reporter user ID |
+| `title` | String(255) | Not Null | Report title |
+| `content` | Text | Not Null | Report content |
+| `status` | String(50) | Default: "open" | Status: open, in_progress, resolved |
+| `comment` | Text | Nullable | Superuser comment |
+| `resolved_at` | DateTime | Nullable | Resolution timestamp |
+| `resolved_by` | Integer | Foreign Key, Nullable | Resolver user ID |
+| `created_at` | DateTime | Not Null | Creation timestamp |
+| `updated_at` | DateTime | Not Null | Last update timestamp |
+
 ## Indexes
 
 ### Users Table
@@ -131,6 +146,9 @@ All models inherit from `BaseModel` which provides:
 - `ix_messages_recipient_id` - Index on recipient_id
 - `ix_messages_conversation_id` - Index on conversation_id
 
+### Reports Table
+- `ix_reports_id` - Primary key index
+
 ## Relationships
 
 ### User Relationships
@@ -138,6 +156,11 @@ All models inherit from `BaseModel` which provides:
 - User has many RefreshTokens (cascade delete)
 - User has many UserRoles (cascade delete)
 - User has many Roles through UserRoles
+- User has many Reports (cascade delete)
+
+### Report Relationships
+- Report belongs to User (reporter) via reporter_id
+- Report may belong to User (resolver) via resolved_by
 
 ### Role Relationships
 - Role has many UserRoles (cascade delete)

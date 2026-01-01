@@ -43,6 +43,9 @@ python -m pytest backend/tests/test_messages.py -v
 
 # Run auth tests
 python -m pytest backend/tests/test_auth.py -v
+
+# Run report tests
+python -m pytest backend/tests/test_reports.py -v
 ```
 
 ## Frontend
@@ -76,6 +79,7 @@ The application uses centralized logging configured in [`backend/init_logs.py`](
 | `auth` | `logs/auth.log` | Authentication events |
 | `twilio_webhook` | `logs/twilio_webhook.log` | Twilio webhook events |
 | `messages` | `logs/messages.log` | Message operations |
+| `reports` | `logs/reports.log` | Report operations |
 
 Each log file:
 - Maximum 1MB per file
@@ -133,6 +137,18 @@ To enable HTTPS for the frontend dev server:
 | DELETE | `/messages/{id}` | Delete message |
 | GET | `/messages/unread/count` | Get unread count |
 | PUT | `/messages/read-all` | Mark all as read |
+
+### Reports (`/reports`)
+
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|--------|
+| POST | `/reports` | Create a new report | Authenticated |
+| GET | `/reports` | List user's reports | Authenticated |
+| GET | `/reports/{id}` | Get specific report | Owner/Superuser |
+| PUT | `/reports/{id}` | Update own report | Owner (open only) |
+| GET | `/reports/admin/all` | List all reports | Superuser |
+| POST | `/reports/{id}/comment` | Add comment/status | Superuser |
+| PUT | `/reports/{id}/resolve` | Resolve report | Superuser |
 
 ### Webhook
 

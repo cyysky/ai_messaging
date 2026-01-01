@@ -27,9 +27,17 @@ backend/
 ├── db/
 │   ├── config.py         # Database configuration and session management
 │   └── models.py         # SQLAlchemy models
+├── messages/
+│   ├── __init__.py
+│   └── router.py         # Messages API endpoints
+├── reports/
+│   ├── __init__.py
+│   └── router.py         # Reports API endpoints
 ├── tests/
 │   ├── __init__.py
-│   └── test_auth.py      # Authentication tests
+│   ├── test_auth.py      # Authentication tests
+│   ├── test_messages.py  # Messages tests
+│   └── test_reports.py   # Reports tests
 ├── main.py               # FastAPI application entry point
 ├── init_logs.py          # Logging configuration
 ├── alembic.ini           # Alembic configuration
@@ -116,6 +124,18 @@ backend/
 | `/messages/{id}` | DELETE | Delete message | Required |
 | `/messages/unread/count` | GET | Get unread count | Required |
 | `/messages/read-all` | PUT | Mark all as read | Required |
+
+### Report Endpoints
+
+| Endpoint | Method | Description | Auth |
+|----------|--------|-------------|------|
+| `/reports` | POST | Create a new report | Required |
+| `/reports` | GET | List user's reports | Required |
+| `/reports/{id}` | GET | Get specific report | Owner/Superuser |
+| `/reports/{id}` | PUT | Update own report | Owner (open only) |
+| `/reports/admin/all` | GET | List all reports | Superuser |
+| `/reports/{id}/comment` | POST | Add comment/status | Superuser |
+| `/reports/{id}/resolve` | PUT | Resolve report | Superuser |
 
 ### Login Response (AuthResponse)
 
@@ -251,6 +271,19 @@ Located in [`backend/db/models.py`](backend/db/models.py:16):
 | `parent_id` | Integer | Nullable | Parent message ID (for replies) |
 | `conversation_id` | String(100) | Index, Nullable | Conversation grouping |
 
+### Report Model
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | Integer | Primary Key | Unique report identifier |
+| `reporter_id` | Integer | Foreign Key, Not Null | Reporter user ID |
+| `title` | String(255) | Not Null | Report title |
+| `content` | Text | Not Null | Report content |
+| `status` | String(50) | Default: "open" | Status: open, in_progress, resolved |
+| `comment` | Text | Nullable | Superuser comment |
+| `resolved_at` | DateTime | Nullable | Resolution timestamp |
+| `resolved_by` | Integer | Foreign Key, Nullable | Resolver user ID |
+
 ## Alembic Migrations
 
 Alembic is used for database schema migration management.
@@ -385,6 +418,7 @@ The application uses a centralized logging module [`backend/init_logs.py`](backe
 | `auth` | `logs/auth.log` | Authentication events |
 | `twilio_webhook` | `logs/twilio_webhook.log` | Twilio webhook events |
 | `messages` | `logs/messages.log` | Message operations |
+| `reports` | `logs/reports.log` | Report operations |
 
 ### Configuration
 

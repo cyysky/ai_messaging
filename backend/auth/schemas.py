@@ -148,3 +148,53 @@ class ConversationResponse(BaseModel):
 
 class Message(BaseModel):
     detail: str
+
+
+# Report schemas
+class ReportCreate(BaseModel):
+    title: str
+    content: str
+
+
+class ReportUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+
+
+class ReportResponse(BaseModel):
+    id: int
+    reporter_id: int
+    title: str
+    content: str
+    status: str
+    comment: Optional[str]
+    resolved_at: Optional[datetime]
+    resolved_by: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ReportListResponse(BaseModel):
+    id: int
+    reporter_id: int
+    reporter_username: Optional[str]
+    title: str
+    content: str
+    status: str
+    comment: Optional[str]
+    resolved_at: Optional[datetime]
+    resolved_by: Optional[int]
+    resolver_username: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ReportCommentRequest(BaseModel):
+    comment: str
+    status: Optional[str] = None  # open, in_progress, resolved

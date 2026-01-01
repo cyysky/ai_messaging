@@ -71,6 +71,9 @@ python -m alembic downgrade base
 ### 4. Checking Migration Status
 
 ```bash
+# Show current different
+python -m alembic check
+
 # Show current revision
 python -m alembic current
 

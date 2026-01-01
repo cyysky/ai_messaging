@@ -16,6 +16,7 @@ from db.config import get_db, engine
 from db.models import Base, User, Message
 from auth.router import router as auth_router
 from messages.router import router as messages_router
+from reports.router import router as reports_router
 from init_logs import auth_logger, twilio_logger
 
 load_dotenv()
@@ -43,6 +44,9 @@ app.include_router(auth_router)
 
 # Include messages router
 app.include_router(messages_router)
+
+# Include reports router
+app.include_router(reports_router)
 
 @app.get("/")
 async def root():

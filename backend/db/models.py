@@ -32,6 +32,9 @@ class User(BaseModel):
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
     user_roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    
+    # Reports relationship - user as reporter
+    reports = relationship("Report", back_populates="reporter", cascade="all, delete-orphan", foreign_keys="Report.reporter_id")
 
 
 class Role(BaseModel):
@@ -95,3 +98,19 @@ class Message(BaseModel):
     # Optional: for message threading
     parent_id = Column(Integer, nullable=True)
     conversation_id = Column(String(100), index=True, nullable=True)
+
+
+class Report(BaseModel):
+    """Report model for user complaints and issues"""
+    __tablename__ = "reports"
+    
+    reporter_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(255), nullable=False)
+    content = Column(Text, nullable=False)
+    status = Column(String(50), default="open", nullable=False)  # open, in_progress, resolved
+    comment = Column(Text, nullable=True)  # Superuser comment
+    resolved_at = Column(DateTime, nullable=True)
+    resolved_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    
+    reporter = relationship("User", foreign_keys=[reporter_id], back_populates="reports")
+    resolver = relationship("User", foreign_keys=[resolved_by])
