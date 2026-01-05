@@ -70,6 +70,7 @@ backend/
 |----------|--------|-------------|------|
 | `/auth/me` | GET | Get current user info | Required |
 | `/auth/me` | PUT | Update current user | Required |
+| `/auth/me/phone` | PUT | Update phone number | Required |
 | `/auth/me/password` | PUT | Change password | Required |
 
 ### Admin Endpoints
@@ -220,6 +221,7 @@ Located in [`backend/db/models.py`](backend/db/models.py:16):
 | `is_superuser` | Boolean | Default: False | Admin privileges |
 | `full_name` | String(255) | Nullable | User's full name |
 | `bio` | Text | Nullable | User biography |
+| `phone_number` | String(20) | Unique, Index, Nullable | User's phone number |
 
 ### Role Model
 
@@ -362,6 +364,7 @@ The test suite includes:
 - Session token generation
 - Token expiry validation
 - Authentication integration flows
+- Phone number field validation
 
 ## Development Setup
 

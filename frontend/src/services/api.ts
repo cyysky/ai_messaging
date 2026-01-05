@@ -142,6 +142,12 @@ export const messageService = {
   }
 }
 
+export interface UserUpdate {
+  full_name?: string
+  bio?: string
+  phone_number?: string
+}
+
 export const authService = {
   async login(data: LoginRequest): Promise<AuthResponse> {
     const response = await api.post<AuthResponse>('/auth/login', data)
@@ -155,6 +161,16 @@ export const authService = {
 
   async getCurrentUser(): Promise<UserResponse> {
     const response = await api.get<UserResponse>('/auth/me')
+    return response.data
+  },
+
+  async updateCurrentUser(data: UserUpdate): Promise<UserResponse> {
+    const response = await api.put<UserResponse>('/auth/me', data)
+    return response.data
+  },
+
+  async updatePhoneNumber(phoneNumber: string): Promise<UserResponse> {
+    const response = await api.put<UserResponse>('/auth/me/phone', { phone_number: phoneNumber })
     return response.data
   },
 

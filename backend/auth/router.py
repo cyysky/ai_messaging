@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
@@ -259,10 +260,53 @@ async def update_current_user(
     if user_data.bio is not None:
         current_user.bio = user_data.bio
     if user_data.phone_number is not None:
+        # Check if phone number is already used by another user
+        existing = db.query(User).filter(
+            User.phone_number == user_data.phone_number,
+            User.id != current_user.id
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number already registered"
+            )
         current_user.phone_number = user_data.phone_number
     
     db.commit()
     db.refresh(current_user)
+    
+    return current_user
+
+
+# ==================== PHONE NUMBER UPDATE ====================
+
+class PhoneUpdateRequest(BaseModel):
+    phone_number: str
+
+
+@router.put("/me/phone", response_model=UserResponse)
+async def update_phone_number(
+    phone_data: PhoneUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update current user's phone number"""
+    # Check if phone number is already used by another user
+    existing = db.query(User).filter(
+        User.phone_number == phone_data.phone_number,
+        User.id != current_user.id
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number already registered"
+        )
+    
+    current_user.phone_number = phone_data.phone_number
+    db.commit()
+    db.refresh(current_user)
+    
+    auth_logger.info(f"Phone number updated for user: {current_user.username}")
     
     return current_user
 

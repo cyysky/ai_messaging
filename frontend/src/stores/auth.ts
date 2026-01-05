@@ -69,7 +69,23 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('user')
   }
 
-  function initializeAuth() {
+  function updateUser(userData: User) {
+    user.value = userData
+    localStorage.setItem('user', JSON.stringify(userData))
+  }
+
+  async function refreshUser() {
+    try {
+      const response = await authService.getCurrentUser()
+      user.value = response
+      localStorage.setItem('user', JSON.stringify(response))
+      return response
+    } catch {
+      return null
+    }
+  }
+
+  async function initializeAuth() {
     const storedToken = localStorage.getItem('token')
     const storedUser = localStorage.getItem('user')
     if (storedToken) {
@@ -81,6 +97,10 @@ export const useAuthStore = defineStore('auth', () => {
       } catch {
         user.value = null
       }
+    }
+    // Refresh user data from server to get latest phone_number
+    if (token.value) {
+      await refreshUser()
     }
   }
 
@@ -96,6 +116,8 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     logout,
+    updateUser,
+    refreshUser,
     initializeAuth,
   }
 })

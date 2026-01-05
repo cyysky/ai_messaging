@@ -11,6 +11,11 @@
             <h1 class="text-h4 font-weight-bold">Welcome back, {{ authStore.user?.full_name || authStore.user?.username || 'User' }}!</h1>
             <p class="text-body-1 text-medium-emphasis">Here's what's happening with your account today.</p>
           </div>
+          <v-spacer></v-spacer>
+          <v-btn color="primary" variant="tonal" @click="showProfileDialog = true" rounded="lg">
+            <v-icon left>mdi-account-edit</v-icon>
+            Edit Profile
+          </v-btn>
         </div>
       </v-col>
     </v-row>
@@ -137,19 +142,100 @@
                 <v-list-item-title>{{ authStore.isSuperuser ? 'Administrator' : 'User' }}</v-list-item-title>
                 <v-list-item-subtitle>Role</v-list-item-subtitle>
               </v-list-item>
+              <v-list-item>
+                <template v-slot:prepend>
+                  <v-icon color="success">mdi-phone</v-icon>
+                </template>
+                <v-list-item-title>{{ authStore.user?.phone_number || 'Not set' }}</v-list-item-title>
+                <v-list-item-subtitle>Phone</v-list-item-subtitle>
+              </v-list-item>
             </v-list>
           </v-card-text>
         </v-card>
       </v-col>
     </v-row>
+
+    <!-- Profile Edit Dialog -->
+    <v-dialog v-model="showProfileDialog" max-width="500" rounded="xl">
+      <v-card>
+        <v-card-title class="pa-4">
+          <v-icon color="primary" class="mr-2">mdi-account-edit</v-icon>
+          Edit Profile
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text class="pa-4">
+          <v-form ref="profileForm" v-model="formValid">
+            <v-text-field
+              v-model="profileData.username"
+              label="Username"
+              prepend-inner-icon="mdi-account-outline"
+              disabled
+              hint="Username cannot be changed"
+              persistent-hint
+            ></v-text-field>
+            <v-text-field
+              v-model="profileData.email"
+              label="Email"
+              type="email"
+              prepend-inner-icon="mdi-email-outline"
+              disabled
+              hint="Email cannot be changed"
+              persistent-hint
+              class="mt-4"
+            ></v-text-field>
+            <v-text-field
+              v-model="profileData.full_name"
+              label="Full Name"
+              prepend-inner-icon="mdi-account-details-outline"
+            ></v-text-field>
+            <v-text-field
+              v-model="profileData.phone_number"
+              label="Phone Number"
+              prepend-inner-icon="mdi-phone-outline"
+              :rules="[v => !v || /^[+]?[0-9\s\-().]{7,20}$/.test(v) || 'Invalid phone number format']"
+              placeholder="+60127939038"
+            ></v-text-field>
+          </v-form>
+        </v-card-text>
+        <v-card-actions class="pa-4">
+          <v-spacer></v-spacer>
+          <v-btn variant="text" @click="showProfileDialog = false">Cancel</v-btn>
+          <v-btn color="primary" @click="updateProfile" :loading="saving" :disabled="!formValid" rounded="lg">Save</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, inject, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { authService } from '@/services/api'
 
 const authStore = useAuthStore()
+const showSnackbar = inject('showSnackbar') as (message: string, color?: string) => void
+
+const showProfileDialog = ref(false)
+const formValid = ref(false)
+const saving = ref(false)
+
+const profileData = ref({
+  username: '',
+  email: '',
+  full_name: '',
+  phone_number: ''
+})
+
+watch(showProfileDialog, (val) => {
+  if (val && authStore.user) {
+    profileData.value = {
+      username: authStore.user.username,
+      email: authStore.user.email,
+      full_name: authStore.user.full_name || '',
+      phone_number: authStore.user.phone_number || ''
+    }
+  }
+})
 
 const userInitials = computed(() => {
   const name = authStore.user?.full_name || authStore.user?.username || 'U'
@@ -162,6 +248,24 @@ const stats = ref({
   pending: 0,
   active: 0,
 })
+
+async function updateProfile() {
+  saving.value = true
+  try {
+    const updatedUser = await authService.updateCurrentUser({
+      full_name: profileData.value.full_name || undefined,
+      phone_number: profileData.value.phone_number || undefined
+    })
+    authStore.updateUser(updatedUser)
+    showSnackbar?.('Profile updated successfully', 'success')
+    showProfileDialog.value = false
+  } catch (error) {
+    console.error('Failed to update profile:', error)
+    showSnackbar?.('Failed to update profile', 'error')
+  } finally {
+    saving.value = false
+  }
+}
 
 function refreshStats() {
   stats.value = {

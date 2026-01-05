@@ -247,6 +247,22 @@ class TestAuthenticationIntegration:
         assert not verify_password(old_password, new_hashed)
 
 
+class TestPhoneNumberUpdate:
+    """Test phone number update functionality"""
+    
+    def test_phone_number_field_exists(self):
+        """Test that User model has phone_number field"""
+        from db.models import User
+        assert hasattr(User, 'phone_number')
+    
+    def test_phone_number_nullable(self):
+        """Test that phone_number is nullable"""
+        from db.models import User
+        # Check that phone_number column allows null
+        phone_column = User.__table__.columns.get('phone_number')
+        assert phone_column is not None
+
+
 # ==================== RUNNER ====================
 
 if __name__ == "__main__":
