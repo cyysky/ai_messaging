@@ -1,47 +1,57 @@
 <template>
   <v-container class="fill-height" fluid>
     <v-row align="center" justify="center">
-      <v-col cols="12" sm="8" md="4">
-        <v-card class="elevation-12">
-          <v-toolbar color="primary" dark flat>
-            <v-toolbar-title>Login</v-toolbar-title>
-          </v-toolbar>
+      <v-col cols="12" sm="8" md="5" lg="4">
+        <v-card class="pa-4" elevation="8" rounded="xl">
+          <v-card-text class="text-center pb-0">
+            <v-icon size="64" color="primary" class="mb-4">mdi-message-text</v-icon>
+            <h1 class="text-h4 font-weight-bold mb-2">Welcome Back</h1>
+            <p class="text-body-2 text-medium-emphasis mb-6">Sign in to continue to AI Messaging</p>
+          </v-card-text>
+          
           <v-card-text>
             <v-form ref="form" v-model="valid" @submit.prevent="handleLogin">
               <v-text-field
                 v-model="username"
                 label="Username"
-                prepend-icon="mdi-account"
+                prepend-inner-icon="mdi-account-outline"
                 :rules="[rules.required]"
-                required
+                autofocus
               ></v-text-field>
               <v-text-field
                 v-model="password"
                 label="Password"
                 :type="showPassword ? 'text' : 'password'"
-                prepend-icon="mdi-lock"
-                :append-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
-                @click:append="showPassword = !showPassword"
+                prepend-inner-icon="mdi-lock-outline"
+                :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
+                @click:append-inner="showPassword = !showPassword"
                 :rules="[rules.required]"
-                required
               ></v-text-field>
+              
+              <v-btn
+                block
+                color="primary"
+                size="large"
+                class="mt-4 mb-4"
+                @click="handleLogin"
+                :loading="authStore.loading"
+                :disabled="!valid"
+              >
+                Sign In
+              </v-btn>
             </v-form>
-            <v-alert v-if="authStore.error" type="error" class="mt-4">
+            
+            <v-alert v-if="authStore.error" type="error" variant="tonal" class="mb-4">
               {{ authStore.error }}
             </v-alert>
           </v-card-text>
-          <v-card-actions>
-            <v-btn to="/register" variant="text" color="secondary">
-              Don't have an account? Register
-            </v-btn>
-            <v-spacer></v-spacer>
-            <v-btn
-              color="primary"
-              @click="handleLogin"
-              :loading="authStore.loading"
-              :disabled="!valid"
-            >
-              Login
+          
+          <v-divider class="mx-4"></v-divider>
+          
+          <v-card-actions class="justify-center py-4">
+            <span class="text-body-2 text-medium-emphasis">Don't have an account?</span>
+            <v-btn to="/register" color="primary" variant="text" class="px-2">
+              Sign Up
             </v-btn>
           </v-card-actions>
         </v-card>

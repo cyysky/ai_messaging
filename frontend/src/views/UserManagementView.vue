@@ -1,19 +1,33 @@
 <template>
-  <v-container>
+  <v-container class="py-6">
+    <v-row class="mb-6">
+      <v-col cols="12">
+        <div class="d-flex align-center">
+          <v-icon color="accent" size="40" class="mr-3">mdi-account-group</v-icon>
+          <div>
+            <h1 class="text-h4 font-weight-bold">User Management</h1>
+            <p class="text-body-2 text-medium-emphasis">Manage system users and permissions</p>
+          </div>
+        </div>
+      </v-col>
+    </v-row>
+
     <v-row>
       <v-col cols="12">
-        <v-card>
-          <v-card-title class="d-flex align-center">
-            <v-icon left>mdi-account-group</v-icon>
-            User Management
+        <v-card rounded="lg">
+          <v-card-title class="d-flex align-center pa-4">
+            <v-icon color="primary" class="mr-2">mdi-account-multiple</v-icon>
+            Users
             <v-spacer></v-spacer>
-            <v-btn color="primary" @click="showCreateDialog = true">
+            <v-btn color="primary" @click="showCreateDialog = true" rounded="lg">
               <v-icon left>mdi-plus</v-icon>
               Add User
             </v-btn>
           </v-card-title>
           
-          <v-card-text>
+          <v-divider></v-divider>
+          
+          <v-card-text class="pa-4">
             <v-text-field
               v-model="search"
               prepend-inner-icon="mdi-magnify"
@@ -21,6 +35,7 @@
               single-line
               hide-details
               class="mb-4"
+              rounded="lg"
             ></v-text-field>
             
             <v-data-table
@@ -29,15 +44,16 @@
               :loading="loading"
               :search="search"
               :items-per-page="10"
+              class="elevation-0"
             >
               <template v-slot:item.is_active="{ item }">
-                <v-chip :color="item.is_active ? 'success' : 'error'" size="small">
+                <v-chip :color="item.is_active ? 'success' : 'error'" size="small" rounded="lg">
                   {{ item.is_active ? 'Active' : 'Disabled' }}
                 </v-chip>
               </template>
               
               <template v-slot:item.is_superuser="{ item }">
-                <v-chip :color="item.is_superuser ? 'warning' : 'default'" size="small">
+                <v-chip :color="item.is_superuser ? 'warning' : 'default'" size="small" variant="tonal" rounded="lg">
                   {{ item.is_superuser ? 'Superuser' : 'User' }}
                 </v-chip>
               </template>
@@ -47,7 +63,7 @@
               </template>
               
               <template v-slot:item.actions="{ item }">
-                <v-btn-group density="compact" variant="text">
+                <v-btn-group density="compact" variant="text" rounded="lg">
                   <v-btn
                     v-if="item.is_active"
                     color="warning"
@@ -96,16 +112,21 @@
     </v-row>
     
     <!-- Create User Dialog -->
-    <v-dialog v-model="showCreateDialog" max-width="500">
+    <v-dialog v-model="showCreateDialog" max-width="500" rounded="xl">
       <v-card>
-        <v-card-title>Create New User</v-card-title>
-        <v-card-text>
+        <v-card-title class="pa-4">
+          <v-icon color="primary" class="mr-2">mdi-account-plus</v-icon>
+          Create New User
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text class="pa-4">
           <v-form ref="createForm" v-model="formValid">
             <v-text-field
               v-model="newUser.username"
               label="Username"
               :rules="[v => !!v || 'Username is required']"
               required
+              prepend-inner-icon="mdi-account-outline"
             ></v-text-field>
             <v-text-field
               v-model="newUser.email"
@@ -113,6 +134,7 @@
               type="email"
               :rules="[v => !!v || 'Email is required', v => /.+@.+\..+/.test(v) || 'Email must be valid']"
               required
+              prepend-inner-icon="mdi-email-outline"
             ></v-text-field>
             <v-text-field
               v-model="newUser.password"
@@ -120,45 +142,47 @@
               type="password"
               :rules="[v => !!v || 'Password is required', v => v.length >= 6 || 'Password must be at least 6 characters']"
               required
+              prepend-inner-icon="mdi-lock-outline"
             ></v-text-field>
             <v-text-field
               v-model="newUser.full_name"
               label="Full Name"
+              prepend-inner-icon="mdi-account-details-outline"
             ></v-text-field>
             <v-text-field
               v-model="newUser.phone_number"
               label="Phone Number"
+              prepend-inner-icon="mdi-phone-outline"
             ></v-text-field>
           </v-form>
         </v-card-text>
-        <v-card-actions>
+        <v-card-actions class="pa-4">
           <v-spacer></v-spacer>
-          <v-btn @click="showCreateDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="createUser" :disabled="!formValid">Create</v-btn>
+          <v-btn variant="text" @click="showCreateDialog = false">Cancel</v-btn>
+          <v-btn color="primary" @click="createUser" :disabled="!formValid" rounded="lg">Create</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
     
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="showDeleteDialog" max-width="400">
+    <v-dialog v-model="showDeleteDialog" max-width="400" rounded="xl">
       <v-card>
-        <v-card-title>Confirm Delete</v-card-title>
-        <v-card-text>
+        <v-card-title class="pa-4">
+          <v-icon color="error" class="mr-2">mdi-alert</v-icon>
+          Confirm Delete
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text class="pa-4">
           Are you sure you want to delete user <strong>{{ userToDelete?.username }}</strong>?
           This action cannot be undone.
         </v-card-text>
-        <v-card-actions>
+        <v-card-actions class="pa-4">
           <v-spacer></v-spacer>
-          <v-btn @click="showDeleteDialog = false">Cancel</v-btn>
-          <v-btn color="error" @click="deleteUser">Delete</v-btn>
+          <v-btn variant="text" @click="showDeleteDialog = false">Cancel</v-btn>
+          <v-btn color="error" @click="deleteUser" rounded="lg">Delete</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
-    
-    <!-- Snackbar -->
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3000">
-      {{ snackbar.message }}
-    </v-snackbar>
   </v-container>
 </template>
 

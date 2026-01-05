@@ -1,13 +1,13 @@
 <template>
-  <v-container>
+  <v-container class="py-6">
     <v-row>
       <v-col cols="12" md="8">
-        <v-card>
-          <v-card-title class="d-flex align-center">
-            <v-icon left>mdi-message-text</v-icon>
-            Messages
+        <v-card rounded="lg">
+          <v-card-title class="d-flex align-center pa-4">
+            <v-icon color="primary" class="mr-2">mdi-message-text</v-icon>
+            <span class="text-h6 font-weight-bold">Messages</span>
             <v-spacer></v-spacer>
-            <v-btn icon variant="text" @click="loadMessages">
+            <v-btn icon variant="text" @click="loadMessages" class="mr-1">
               <v-icon>mdi-refresh</v-icon>
             </v-btn>
             <v-btn icon variant="text" color="primary" @click="showNewMessageDialog = true">
@@ -15,12 +15,14 @@
             </v-btn>
           </v-card-title>
           
-          <v-card-text>
-            <v-tabs v-model="activeTab" class="mb-4">
-              <v-tab value="all">All Messages</v-tab>
-              <v-tab value="sent">Sent</v-tab>
-              <v-tab value="received">Received</v-tab>
-              <v-tab value="unread" v-if="unreadCount > 0">
+          <v-divider></v-divider>
+          
+          <v-card-text class="pa-4">
+            <v-tabs v-model="activeTab" color="primary" class="mb-4">
+              <v-tab value="all" rounded="lg">All Messages</v-tab>
+              <v-tab value="sent" rounded="lg">Sent</v-tab>
+              <v-tab value="received" rounded="lg">Received</v-tab>
+              <v-tab value="unread" v-if="unreadCount > 0" rounded="lg">
                 Unread
                 <v-badge :content="unreadCount" color="error" inline></v-badge>
               </v-tab>
@@ -31,12 +33,15 @@
               prepend-inner-icon="mdi-magnify"
               label="Search messages"
               variant="outlined"
-              density="compact"
+              density="comfortable"
               hide-details
               class="mb-4"
+              rounded="lg"
             ></v-text-field>
 
-            <v-list v-if="loading" lines="three">
+            <v-progress-linear v-if="loading" indeterminate color="primary" class="mb-4"></v-progress-linear>
+
+            <v-list v-if="loading" lines="three" class="message-list">
               <v-list-item v-for="n in 5" :key="n">
                 <template v-slot:prepend>
                   <v-skeleton-loader type="avatar"></v-skeleton-loader>
@@ -45,35 +50,36 @@
               </v-list-item>
             </v-list>
 
-            <v-list v-else-if="filteredMessages.length > 0" lines="three" class="message-list">
+            <v-list v-else-if="filteredMessages.length > 0" lines="three" class="message-list rounded-lg">
               <v-list-item
                 v-for="message in filteredMessages"
                 :key="message.id"
                 :class="{ 'unread-message': !message.is_read && message.recipient_id === currentUserId }"
+                class="mb-2 rounded-lg"
               >
                 <template v-slot:prepend>
-                  <v-avatar :color="message.sender_id === currentUserId ? 'primary' : 'secondary'" size="40">
-                    <span class="text-h6">{{ getUserInitials(message) }}</span>
+                  <v-avatar :color="message.sender_id === currentUserId ? 'primary' : 'secondary'" size="44">
+                    <span class="text-subtitle-1">{{ getUserInitials(message) }}</span>
                   </v-avatar>
                 </template>
 
                 <v-list-item-title class="font-weight-medium">
                   {{ message.sender_id === currentUserId ? 'You' : getOtherUserName(message) }}
-                  <v-chip size="x-small" class="ml-2" :color="message.is_read ? 'success' : 'warning'" variant="outlined">
+                  <v-chip size="x-small" class="ml-2" :color="message.is_read ? 'success' : 'warning'" variant="flat">
                     {{ message.is_read ? 'Read' : 'Unread' }}
                   </v-chip>
                 </v-list-item-title>
                 <v-list-item-subtitle class="text-truncate" style="max-width: 300px">
                   {{ message.content }}
                 </v-list-item-subtitle>
-                <v-list-item-subtitle class="text-caption mt-1">
+                <v-list-item-subtitle class="text-caption mt-1 text-medium-emphasis">
                   {{ formatDate(message.created_at) }}
                 </v-list-item-subtitle>
 
                 <template v-slot:append>
                   <div class="d-flex flex-column align-end">
-                    <v-btn icon variant="text" size="small" @click.stop="openReplyDialog(message)" v-if="message.sender_id !== currentUserId">
-                      <v-icon size="small">mdi-reply</v-icon>
+                    <v-btn icon variant="text" size="small" @click.stop="openReplyDialog(message)" v-if="message.sender_id !== currentUserId" class="mb-1">
+                      <v-icon size="small" color="primary">mdi-reply</v-icon>
                     </v-btn>
                     <v-menu>
                       <template v-slot:activator="{ props }">
@@ -81,7 +87,7 @@
                           <v-icon size="small">mdi-dots-vertical</v-icon>
                         </v-btn>
                       </template>
-                      <v-list density="compact">
+                      <v-list density="compact" rounded="lg">
                         <v-list-item @click="openEditDialog(message)" v-if="message.sender_id === currentUserId">
                           <template v-slot:prepend>
                             <v-icon size="small">mdi-pencil</v-icon>
@@ -107,105 +113,123 @@
               </v-list-item>
             </v-list>
 
-            <div v-else class="text-center py-8">
-              <v-icon size="64" color="grey-lighten-1">mdi-message-text-outline</v-icon>
-              <p class="text-h6 text-grey mt-4">No messages found</p>
+            <div v-else class="text-center py-12">
+              <v-icon size="80" color="grey-lighten-2" class="mb-4">mdi-message-text-outline</v-icon>
+              <p class="text-h6 text-grey">No messages found</p>
               <p class="text-body-2 text-grey">Send a message to start a conversation</p>
+              <v-btn color="primary" class="mt-4" @click="showNewMessageDialog = true">
+                <v-icon left>mdi-plus</v-icon>
+                New Message
+              </v-btn>
             </div>
           </v-card-text>
         </v-card>
       </v-col>
 
       <v-col cols="12" md="4">
-        <v-card>
-          <v-card-title>
-            <v-icon left>mdi-account-multiple</v-icon>
+        <v-card rounded="lg" class="mb-4">
+          <v-card-title class="pa-4">
+            <v-icon color="accent" class="mr-2">mdi-lightning-bolt</v-icon>
             Quick Actions
           </v-card-title>
-          <v-card-text>
-            <v-btn block color="primary" class="mb-2" @click="showNewMessageDialog = true">
+          <v-divider></v-divider>
+          <v-card-text class="pa-4">
+            <v-btn block color="primary" class="mb-3" @click="showNewMessageDialog = true" rounded="lg">
               <v-icon left>mdi-plus</v-icon>
               New Message
             </v-btn>
-            <v-btn block variant="outlined" class="mb-2" @click="markAllAsRead" :disabled="unreadCount === 0">
+            <v-btn block variant="outlined" class="mb-3" @click="markAllAsRead" :disabled="unreadCount === 0" rounded="lg">
               <v-icon left>mdi-check-all</v-icon>
               Mark All as Read
             </v-btn>
             <v-divider class="my-4"></v-divider>
-            <p class="text-subtitle-2 mb-2">Unread Messages: {{ unreadCount }}</p>
+            <v-alert type="info" variant="tonal" density="compact" rounded="lg">
+              <div class="d-flex align-center">
+                <v-icon class="mr-2">mdi-email-outline</v-icon>
+                <span>Unread Messages: <strong>{{ unreadCount }}</strong></span>
+              </div>
+            </v-alert>
           </v-card-text>
         </v-card>
       </v-col>
     </v-row>
 
     <!-- New Message Dialog -->
-    <v-dialog v-model="showNewMessageDialog" max-width="500">
+    <v-dialog v-model="showNewMessageDialog" max-width="500" rounded="xl">
       <v-card>
-        <v-card-title>New Message</v-card-title>
-        <v-card-text>
+        <v-card-title class="pa-4">
+          <v-icon color="primary" class="mr-2">mdi-message-plus</v-icon>
+          New Message
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text class="pa-4">
           <v-select
             v-model="newMessage.recipient_id"
             :items="users"
             item-title="username"
             item-value="id"
             label="Recipient"
-            variant="outlined"
             required
           ></v-select>
           <v-textarea
             v-model="newMessage.content"
             label="Message"
-            variant="outlined"
             rows="4"
             required
           ></v-textarea>
         </v-card-text>
-        <v-card-actions>
+        <v-card-actions class="pa-4">
           <v-spacer></v-spacer>
           <v-btn variant="text" @click="showNewMessageDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="sendMessage" :loading="sending">Send</v-btn>
+          <v-btn color="primary" @click="sendMessage" :loading="sending" rounded="lg">Send</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Edit Message Dialog -->
-    <v-dialog v-model="showEditDialog" max-width="500">
+    <v-dialog v-model="showEditDialog" max-width="500" rounded="xl">
       <v-card>
-        <v-card-title>Edit Message</v-card-title>
-        <v-card-text>
+        <v-card-title class="pa-4">
+          <v-icon color="secondary" class="mr-2">mdi-pencil</v-icon>
+          Edit Message
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text class="pa-4">
           <v-textarea
             v-model="editMessage.content"
             label="Message"
-            variant="outlined"
             rows="4"
             required
           ></v-textarea>
         </v-card-text>
-        <v-card-actions>
+        <v-card-actions class="pa-4">
           <v-spacer></v-spacer>
           <v-btn variant="text" @click="showEditDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="updateMessage" :loading="saving">Save</v-btn>
+          <v-btn color="primary" @click="updateMessage" :loading="saving" rounded="lg">Save</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Reply Dialog -->
-    <v-dialog v-model="showReplyDialog" max-width="500">
+    <v-dialog v-model="showReplyDialog" max-width="500" rounded="xl">
       <v-card>
-        <v-card-title>Reply to Message</v-card-title>
-        <v-card-text>
+        <v-card-title class="pa-4">
+          <v-icon color="primary" class="mr-2">mdi-reply</v-icon>
+          Reply to Message
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text class="pa-4">
           <v-textarea
             v-model="replyMessage.content"
             label="Reply"
-            variant="outlined"
             rows="4"
             required
           ></v-textarea>
         </v-card-text>
-        <v-card-actions>
+        <v-card-actions class="pa-4">
           <v-spacer></v-spacer>
           <v-btn variant="text" @click="showReplyDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="sendReply" :loading="sending">Send</v-btn>
+          <v-btn color="primary" @click="sendReply" :loading="sending" rounded="lg">Send</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

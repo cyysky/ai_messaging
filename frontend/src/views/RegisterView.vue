@@ -1,63 +1,71 @@
 <template>
   <v-container class="fill-height" fluid>
     <v-row align="center" justify="center">
-      <v-col cols="12" sm="8" md="4">
-        <v-card class="elevation-12">
-          <v-toolbar color="secondary" dark flat>
-            <v-toolbar-title>Register</v-toolbar-title>
-          </v-toolbar>
+      <v-col cols="12" sm="8" md="5" lg="4">
+        <v-card class="pa-4" elevation="8" rounded="xl">
+          <v-card-text class="text-center pb-0">
+            <v-icon size="64" color="secondary" class="mb-4">mdi-account-plus</v-icon>
+            <h1 class="text-h4 font-weight-bold mb-2">Create Account</h1>
+            <p class="text-body-2 text-medium-emphasis mb-6">Join AI Messaging today</p>
+          </v-card-text>
+          
           <v-card-text>
             <v-form ref="form" v-model="valid" @submit.prevent="handleRegister">
               <v-text-field
                 v-model="username"
                 label="Username"
-                prepend-icon="mdi-account"
+                prepend-inner-icon="mdi-account-outline"
                 :rules="[rules.required]"
-                required
+                autofocus
               ></v-text-field>
               <v-text-field
                 v-model="email"
                 label="Email"
                 type="email"
-                prepend-icon="mdi-email"
+                prepend-inner-icon="mdi-email-outline"
                 :rules="[rules.required, rules.email]"
-                required
               ></v-text-field>
               <v-text-field
                 v-model="password"
                 label="Password"
                 :type="showPassword ? 'text' : 'password'"
-                prepend-icon="mdi-lock"
-                :append-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
-                @click:append="showPassword = !showPassword"
+                prepend-inner-icon="mdi-lock-outline"
+                :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
+                @click:append-inner="showPassword = !showPassword"
                 :rules="[rules.required, rules.minLength]"
-                required
               ></v-text-field>
               <v-text-field
                 v-model="confirmPassword"
                 label="Confirm Password"
                 :type="showPassword ? 'text' : 'password'"
-                prepend-icon="mdi-lock-check"
+                prepend-inner-icon="mdi-lock-check-outline"
                 :rules="[rules.required, rules.match]"
-                required
               ></v-text-field>
+              
+              <v-btn
+                block
+                color="secondary"
+                size="large"
+                class="mt-4 mb-4"
+                @click="handleRegister"
+                :loading="authStore.loading"
+                :disabled="!valid"
+              >
+                Create Account
+              </v-btn>
             </v-form>
-            <v-alert v-if="authStore.error" type="error" class="mt-4">
+            
+            <v-alert v-if="authStore.error" type="error" variant="tonal" class="mb-4">
               {{ authStore.error }}
             </v-alert>
           </v-card-text>
-          <v-card-actions>
-            <v-btn to="/login" variant="text" color="secondary">
-              Already have an account? Login
-            </v-btn>
-            <v-spacer></v-spacer>
-            <v-btn
-              color="secondary"
-              @click="handleRegister"
-              :loading="authStore.loading"
-              :disabled="!valid"
-            >
-              Register
+          
+          <v-divider class="mx-4"></v-divider>
+          
+          <v-card-actions class="justify-center py-4">
+            <span class="text-body-2 text-medium-emphasis">Already have an account?</span>
+            <v-btn to="/login" color="secondary" variant="text" class="px-2">
+              Sign In
             </v-btn>
           </v-card-actions>
         </v-card>

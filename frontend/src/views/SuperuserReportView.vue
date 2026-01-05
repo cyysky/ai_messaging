@@ -1,19 +1,25 @@
 <template>
-  <v-container>
-    <v-row>
+  <v-container class="py-6">
+    <v-row class="mb-6">
       <v-col cols="12">
-        <h1 class="text-h4 mb-4">Report Management</h1>
+        <div class="d-flex align-center">
+          <v-icon color="warning" size="40" class="mr-3">mdi-shield-crown</v-icon>
+          <div>
+            <h1 class="text-h4 font-weight-bold">Report Management</h1>
+            <p class="text-body-2 text-medium-emphasis">Review and manage user reports</p>
+          </div>
+        </div>
       </v-col>
     </v-row>
 
     <!-- Filter -->
-    <v-row>
+    <v-row class="mb-4">
       <v-col cols="12">
         <v-chip-group v-model="statusFilter" mandatory>
-          <v-chip filter value="">All</v-chip>
-          <v-chip filter value="open">Open</v-chip>
-          <v-chip filter value="in_progress">In Progress</v-chip>
-          <v-chip filter value="resolved">Resolved</v-chip>
+          <v-chip filter value="" rounded="lg">All</v-chip>
+          <v-chip filter value="open" color="error" variant="tonal" rounded="lg">Open</v-chip>
+          <v-chip filter value="in_progress" color="warning" variant="tonal" rounded="lg">In Progress</v-chip>
+          <v-chip filter value="resolved" color="success" variant="tonal" rounded="lg">Resolved</v-chip>
         </v-chip-group>
       </v-col>
     </v-row>
@@ -21,22 +27,23 @@
     <!-- Reports Table -->
     <v-row>
       <v-col cols="12">
-        <v-card>
-          <v-card-text>
+        <v-card rounded="lg">
+          <v-card-text class="pa-0">
             <v-data-table
               :headers="headers"
               :items="reports"
               :loading="loading"
               :items-per-page="10"
+              class="elevation-0"
             >
               <template v-slot:item.title="{ item }">
                 <div class="font-weight-medium">{{ item.title }}</div>
-                <div class="text-caption text-grey">{{ item.reporter_username }}</div>
+                <div class="text-caption text-medium-emphasis">{{ item.reporter_username }}</div>
               </template>
               
               <template v-slot:item.status="{ item }">
-                <v-chip :color="getStatusColor(item.status)" size="small">
-                  {{ item.status }}
+                <v-chip :color="getStatusColor(item.status)" size="small" rounded="lg">
+                  {{ item.status.replace('_', ' ') }}
                 </v-chip>
               </template>
               
@@ -45,16 +52,22 @@
               </template>
               
               <template v-slot:item.resolved_at="{ item }">
-                {{ item.resolved_at ? formatDate(item.resolved_at) : '-' }}
+                <span v-if="item.resolved_at" class="text-success">
+                  <v-icon size="small" class="mr-1">mdi-check-circle</v-icon>
+                  {{ formatDate(item.resolved_at) }}
+                </span>
+                <span v-else class="text-medium-emphasis">-</span>
               </template>
               
               <template v-slot:item.actions="{ item }">
                 <v-btn
                   color="primary"
                   size="small"
-                  variant="text"
+                  variant="tonal"
                   @click="openManageDialog(item)"
+                  rounded="lg"
                 >
+                  <v-icon left size="small">mdi-pencil</v-icon>
                   Manage
                 </v-btn>
               </template>
@@ -66,34 +79,47 @@
 
     <v-row v-if="reports.length === 0 && !loading">
       <v-col cols="12">
-        <v-alert type="info">No reports found.</v-alert>
+        <v-card rounded="lg" class="text-center pa-8">
+          <v-icon size="64" color="grey-lighten-2" class="mb-4">mdi-clipboard-text-off-outline</v-icon>
+          <p class="text-h6 text-grey">No reports found</p>
+        </v-card>
       </v-col>
     </v-row>
 
     <!-- Manage Dialog -->
-    <v-dialog v-model="manageDialog" max-width="600">
+    <v-dialog v-model="manageDialog" max-width="600" rounded="xl">
       <v-card v-if="selectedReport">
-        <v-card-title>Manage Report</v-card-title>
-        <v-card-text>
-          <v-alert type="info" variant="tonal" class="mb-4">
-            <div><strong>Reporter:</strong> {{ selectedReport.reporter_username }}</div>
-            <div><strong>Created:</strong> {{ formatDate(selectedReport.created_at) }}</div>
+        <v-card-title class="pa-4">
+          <v-icon color="primary" class="mr-2">mdi-clipboard-check</v-icon>
+          Manage Report
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text class="pa-4">
+          <v-alert type="info" variant="tonal" class="mb-4" rounded="lg">
+            <div class="d-flex align-center mb-2">
+              <v-icon size="small" class="mr-2">mdi-account</v-icon>
+              <strong>Reporter:</strong>&nbsp;{{ selectedReport.reporter_username }}
+            </div>
+            <div class="d-flex align-center">
+              <v-icon size="small" class="mr-2">mdi-clock-outline</v-icon>
+              <strong>Created:</strong>&nbsp;{{ formatDate(selectedReport.created_at) }}
+            </div>
           </v-alert>
           
           <v-text-field
             :model-value="selectedReport.title"
             label="Title"
             readonly
-            variant="outlined"
-            density="compact"
+            density="comfortable"
+            class="mb-3"
           ></v-text-field>
           
           <v-textarea
             :model-value="selectedReport.content"
             label="Content"
             readonly
-            variant="outlined"
             rows="3"
+            class="mb-4"
           ></v-textarea>
           
           <v-divider class="my-4"></v-divider>
@@ -102,34 +128,37 @@
             v-model="manageForm.status"
             :items="statusOptions"
             label="Status"
-            variant="outlined"
+            density="comfortable"
+            class="mb-3"
           ></v-select>
           
           <v-textarea
             v-model="manageForm.comment"
             label="Comment (Response to user)"
-            variant="outlined"
             rows="3"
             hint="Add a comment to respond to the user"
             persistent-hint
           ></v-textarea>
         </v-card-text>
-        <v-card-actions>
+        <v-card-actions class="pa-4">
           <v-btn
             color="success"
-            variant="elevated"
+            variant="tonal"
             :loading="loading"
             @click="resolveReport"
             :disabled="selectedReport.status === 'resolved'"
+            rounded="lg"
           >
+            <v-icon left>mdi-check</v-icon>
             Mark Resolved
           </v-btn>
           <v-spacer></v-spacer>
-          <v-btn @click="manageDialog = false">Cancel</v-btn>
+          <v-btn variant="text" @click="manageDialog = false">Cancel</v-btn>
           <v-btn
             color="primary"
             :loading="loading"
             @click="saveComment"
+            rounded="lg"
           >
             Save Comment
           </v-btn>
