@@ -237,7 +237,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { messageService, authService, type MessageResponse, type MessageCreate, type MessageUpdate } from '@/services/api'
 
 const loading = ref(true)
@@ -259,6 +259,17 @@ const saving = ref(false)
 const newMessage = ref<MessageCreate>({ recipient_id: 0, content: '' })
 const editMessage = ref<MessageUpdate>({})
 const replyMessage = ref<MessageCreate>({ recipient_id: 0, content: '' })
+
+// Set default recipient to current user
+const resetNewMessage = () => {
+  newMessage.value = { recipient_id: currentUserId.value || 0, content: '' }
+}
+
+// Watch for dialog open to reset form with current user ID
+watch(showNewMessageDialog, (val) => {
+  if (val) resetNewMessage()
+})
+
 const selectedMessage = ref<MessageResponse | null>(null)
 
 const filteredMessages = computed(() => {
@@ -328,12 +339,11 @@ async function loadMessages() {
 
 async function sendMessage() {
   if (!newMessage.value.recipient_id || !newMessage.value.content) return
-  
+
   sending.value = true
   try {
     await messageService.createMessage(newMessage.value)
     showNewMessageDialog.value = false
-    newMessage.value = { recipient_id: 0, content: '' }
     await loadMessages()
   } catch (error) {
     console.error('Failed to send message:', error)

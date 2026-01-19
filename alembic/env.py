@@ -21,8 +21,8 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from db.config import Base
-from db import models  # Import models to register them
+from backend.db.config import Base
+from backend.db import models  # Import models to register them
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

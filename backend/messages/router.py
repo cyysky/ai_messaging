@@ -113,14 +113,7 @@ async def create_message(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Recipient not found"
         )
-    
-    # Cannot send message to yourself
-    if message_data.recipient_id == current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot send message to yourself"
-        )
-    
+
     # Generate conversation_id if not provided
     conversation_id = message_data.conversation_id
     if not conversation_id:
