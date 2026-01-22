@@ -82,17 +82,43 @@ npm run dev
 
 The application uses centralized logging configured in [`backend/init_logs.py`](backend/init_logs.py:1). Log files are stored in the `logs/` directory by default.
 
+### Available Loggers
+
 | Logger | Log File | Description |
 |--------|----------|-------------|
 | `auth` | `logs/auth.log` | Authentication events |
-| `twilio_webhook` | `logs/twilio_webhook.log` | Twilio webhook & reply events |
-| `messages` | `logs/messages.log` | Message operations |
-| `reports` | `logs/reports.log` | Report operations |
+| `twilio_logger` | `logs/twilio_webhook.log` | Twilio webhook & reply events |
+| `messages_logger` | `logs/messages.log` | Message operations |
+| `orchestrator_logger` | `logs/orchestrator.log` | AI orchestration & agent debugging |
+
+### Adding New Loggers
+
+To add a new logger, edit `backend/init_logs.py`:
+
+```python
+from init_logs import setup_logger
+
+# Add at the bottom:
+my_logger = setup_logger("my_module", "my_module.log")
+
+# Then import in your module:
+# from init_logs import my_logger
+# my_logger.info("Your message")
+```
+
+### Log File Properties
 
 Each log file:
 - Maximum 1MB per file
 - Up to 50 backup files (50MB total)
-- Timestamped entries with logger name and level
+- Format: `%(asctime)s - %(name)s - %(levelname)s - %(message)s`
+
+Example output:
+```
+2026-01-22 15:30:45,123 - orchestrator - INFO - User 1: make a report about... (history_len=1)
+2026-01-22 15:30:45,456 - orchestrator - INFO - Routing to agent: report_agent
+2026-01-22 15:30:46,789 - orchestrator - INFO - report_agent calling function: create_report
+```
 
 ## SSL Setup
 
@@ -218,7 +244,7 @@ All endpoints except `/twilio_webhook` and `/auth/register` require authenticati
 ### Chat History
 
 - Maximum 50 entries (user + assistant messages only)
-- Managed by `ChatHistory` class in `backend/orchestrator.py`
+- Managed by `ChatHistory` class in `backend/orchestrator/__init__.py`
 - Stored in memory (per server instance)
 - Accessible via `/messages/history` endpoint
 
@@ -241,9 +267,9 @@ All endpoints except `/twilio_webhook` and `/auth/register` require authenticati
 
 ### Adding New Agents
 
-1. Create agent in `example-agent/` (see `report_agent.py` for pattern)
-2. Register in `backend/orchestrator.py` via `setup_orchestrator()`
-3. Agent pattern requires: `SYSTEM_PROMPT`, `TOOLS`, `chat_func()`
+1. Create agent in `backend/orchestrator/` (see `report_agent.py` for pattern)
+2. Register in `backend/orchestrator/__init__.py` via `setup_orchestrator()`
+3. Agent pattern requires: `SYSTEM_PROMPT`, `TOOLS`, `chat_func(user_id, ...)`
 
 ### Twilio Integration
 

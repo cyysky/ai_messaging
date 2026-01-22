@@ -9,6 +9,9 @@ Configure via environment variables:
 - LITELLM_API_KEY: The API key for authentication
 - LITELLM_MODEL: The model to use (e.g., gpt-4, gpt-3.5-turbo-1106)
 - CHAT_HISTORY_MAX: Maximum number of chat history entries (default: 50)
+
+Logging: Uses orchestrator_logger from init_logs
+        Logs are written to logs/orchestrator.log
 """
 
 import os
@@ -17,11 +20,16 @@ import json
 from typing import Dict, List, Any, Optional, Callable, Tuple
 from datetime import datetime
 
-# Add example-agent to path
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "example-agent"))
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dotenv import load_dotenv
 from litellm import completion
+
+# Import orchestrator logger from init_logs
+# NOTE: If adding new loggers, define them in init_logs.py following the pattern:
+#   orchestrator_logger = setup_logger("orchestrator", "orchestrator.log")
+from init_logs import orchestrator_logger
 
 load_dotenv()
 
@@ -133,7 +141,7 @@ class MessageOrchestrator:
     def register_agent(self, agent: Agent) -> None:
         """Register a new agent."""
         self.agents[agent.name] = agent
-        print(f"[Orchestrator] Registered agent: {agent.name}")
+        orchestrator_logger.info(f"Registered agent: {agent.name}")
 
     def list_agents(self) -> str:
         """List all registered agents."""
@@ -165,7 +173,12 @@ class MessageOrchestrator:
         message_lower = user_message.lower()
 
         # Check for report-related keywords
-        report_keywords = ["report", "my reports", "list reports", "show report", "update report", "edit report"]
+        report_keywords = [
+            "report", "my reports", "list reports", "show report",
+            "update report", "edit report", "create report", "new report",
+            "submit report", "file a report", "make a report",
+            "water flow", "broken", "repair", "maintenance", "facilities issue"
+        ]
         if any(kw in message_lower for kw in report_keywords):
             if "report_agent" in self.agents:
                 return "report_agent"
@@ -180,25 +193,26 @@ class MessageOrchestrator:
         # Add user message to history
         chat_history.add_user_message(user_message)
 
-        print(f"[Orchestrator] User {user_id}: {user_message[:100]}...")
-        print(f"[Orchestrator] History length: {len(chat_history)}")
+        orchestrator_logger.info(f"User {user_id}: {user_message[:100]}... (history_len={len(chat_history)})")
 
         # Check if any agent should handle this message
         agent_name = self._should_use_agent(user_message)
 
         if agent_name and agent_name in self.agents:
             agent = self.agents[agent_name]
-            print(f"[Orchestrator] Using agent: {agent_name}")
+            orchestrator_logger.info(f"Routing to agent: {agent_name}")
 
             try:
                 # Get history for agent (as list of message dicts)
                 history_list = chat_history.get_history()
 
-                # Call the agent's chat function
+                # Call the agent's chat function with user_id
+                orchestrator_logger.debug(f"Calling agent.chat_func with user_id={user_id}")
                 response, new_history = agent.chat_func(
                     user_message,
                     history_list,
-                    max_turns=5
+                    max_turns=5,
+                    user_id=user_id  # Pass user_id to the agent
                 )
 
                 # Update chat history with agent's response
@@ -207,7 +221,7 @@ class MessageOrchestrator:
                 return response
 
             except Exception as e:
-                print(f"[Orchestrator] Agent error: {e}")
+                orchestrator_logger.error(f"Agent error in {agent_name}: {e}")
                 return f"I apologize, but I encountered an error while processing your request: {str(e)}"
 
         # Default: handle with general conversational AI
@@ -247,7 +261,7 @@ Plain text only, no special characters or emojis."""
             return content
 
         except Exception as e:
-            print(f"[Orchestrator] Conversation error: {e}")
+            orchestrator_logger.error(f"Conversation error: {e}")
             return "I apologize, but I'm having trouble responding right now. Please try again later."
 
     def handle_twilio_message(self, user_id: int, message_content: str) -> str:
@@ -273,130 +287,31 @@ def setup_orchestrator() -> MessageOrchestrator:
 
     # Import and register report agent
     try:
-        import report_agent
+        import orchestrator.report_agent as report_agent_module
 
-        # Create wrapper functions that use database
-        from sqlalchemy.orm import Session
-        from db.config import get_db
-        from db.models import Report
-
-        def get_my_reports_func(status_filter: str = None):
-            """Get reports for the current user."""
-            db: Session = next(get_db())
-            try:
-                user_id = getattr(db.info, 'current_user_id', None)
-                if not user_id:
-                    return "Error: User context not available"
-
-                query = db.query(Report).filter(Report.reporter_id == user_id)
-                if status_filter:
-                    query = query.filter(Report.status == status_filter)
-
-                reports = query.order_by(Report.created_at.desc()).all()
-
-                if not reports:
-                    return "You have no reports."
-
-                result = f"Your Reports:\n\n"
-                for report in reports:
-                    result += f"ID: {report.id}\n"
-                    result += f"Title: {report.title}\n"
-                    result += f"Status: {report.status}\n"
-                    result += f"Created: {report.created_at}\n"
-                    result += "-" * 30 + "\n"
-
-                return result
-            finally:
-                db.close()
-
-        def get_report_func(report_id: int):
-            """Get a specific report."""
-            db: Session = next(get_db())
-            try:
-                user_id = getattr(db.info, 'current_user_id', None)
-                if not user_id:
-                    return "Error: User context not available"
-
-                report = db.query(Report).filter(
-                    Report.id == report_id,
-                    Report.reporter_id == user_id
-                ).first()
-
-                if not report:
-                    return f"Report #{report_id} not found or you don't have access to it."
-
-                result = f"Report Details:\n\n"
-                result += f"ID: {report.id}\n"
-                result += f"Title: {report.title}\n"
-                result += f"Content: {report.content}\n"
-                result += f"Status: {report.status}\n"
-                result += f"Created: {report.created_at}\n"
-
-                if report.comment:
-                    result += f"\nAdmin Comment: {report.comment}\n"
-
-                if report.resolved_by:
-                    result += f"Resolved at: {report.resolved_at}\n"
-
-                return result
-            finally:
-                db.close()
-
-        def update_report_func(report_id: int, title: str = None, content: str = None):
-            """Update a report."""
-            db: Session = next(get_db())
-            try:
-                user_id = getattr(db.info, 'current_user_id', None)
-                if not user_id:
-                    return "Error: User context not available"
-
-                report = db.query(Report).filter(
-                    Report.id == report_id,
-                    Report.reporter_id == user_id
-                ).first()
-
-                if not report:
-                    return f"Report #{report_id} not found or you don't have access to it."
-
-                if report.status != "open":
-                    return f"Cannot update report #{report_id}. Only open reports can be modified. Current status: {report.status}"
-
-                updates = []
-                if title:
-                    report.title = title
-                    updates.append("title")
-                if content:
-                    report.content = content
-                    updates.append("content")
-
-                db.commit()
-
-                return f"Report #{report_id} updated successfully. Updated fields: {', '.join(updates)}"
-            finally:
-                db.close()
-
-        # Set available functions
-        report_agent.AVAILABLE_FUNCTIONS = {
-            "get_my_reports": get_my_reports_func,
-            "get_report": get_report_func,
-            "update_report": update_report_func,
+        # Set available functions directly on the module
+        report_agent_module.AVAILABLE_FUNCTIONS = {
+            "get_my_reports": report_agent_module.get_my_reports,
+            "get_report": report_agent_module.get_report,
+            "create_report": report_agent_module.create_report,
+            "update_report": report_agent_module.update_report,
         }
 
         # Create and register agent
         report_agent_instance = Agent(
             name="report_agent",
-            description="Report management - list, view, and update user reports",
-            system_prompt=report_agent.SYSTEM_PROMPT,
-            tools=report_agent.TOOLS,
-            available_functions=report_agent.AVAILABLE_FUNCTIONS,
-            chat_func=report_agent.chat,
+            description="Report management - list, view, create, and update user reports",
+            system_prompt=report_agent_module.SYSTEM_PROMPT,
+            tools=report_agent_module.TOOLS,
+            available_functions=report_agent_module.AVAILABLE_FUNCTIONS,
+            chat_func=report_agent_module.chat,
         )
 
         orchestrator.register_agent(report_agent_instance)
-        print("[Orchestrator] Report agent registered successfully")
+        orchestrator_logger.info("Report agent registered successfully")
 
     except Exception as e:
-        print(f"[Orchestrator] Failed to register report agent: {e}")
+        orchestrator_logger.error(f"Failed to register report agent: {e}")
 
     return orchestrator
 

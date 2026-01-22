@@ -19,6 +19,22 @@ from messages.router import router as messages_router
 from reports.router import router as reports_router
 from init_logs import auth_logger, twilio_logger
 
+# =============================================================================
+# Logging Structure (defined in init_logs.py)
+# =============================================================================
+# To add new loggers, edit backend/init_logs.py:
+#   1. Add: orchestrator_logger = setup_logger("orchestrator", "orchestrator.log")
+#   2. Import here: from init_logs import orchestrator_logger
+#   3. Use: orchestrator_logger.info("Your message")
+#
+# Log files are stored in: logs/ (configurable via AI_MESSAGE_LOGS_FOLDER env var)
+# Available loggers:
+#   - auth_logger      -> logs/auth.log         (authentication events)
+#   - twilio_logger    -> logs/twilio_webhook.log (Twilio webhook & replies)
+#   - messages_logger  -> logs/messages.log     (message operations)
+#   - orchestrator_logger -> logs/orchestrator.log (AI orchestration)
+# =============================================================================
+
 load_dotenv()
 
 # Create tables on startup

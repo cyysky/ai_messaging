@@ -39,7 +39,9 @@ backend/
 │   ├── test_messages.py  # Messages tests
 │   └── test_reports.py   # Reports tests
 ├── main.py               # FastAPI application entry point
-├── orchestrator.py       # AI message orchestration
+├── orchestrator/
+│   ├── __init__.py       # MessageOrchestrator, Agent, ChatHistory classes
+│   └── report_agent.py   # Report management AI agent
 ├── init_logs.py          # Logging configuration
 ├── alembic.ini           # Alembic configuration
 └── requirements.txt      # Python dependencies
@@ -49,7 +51,7 @@ backend/
 
 ### Overview
 
-The application uses an `Orchestrator` pattern ([`backend/orchestrator.py`](backend/orchestrator.py:119)) to handle AI-powered messaging. It coordinates between different AI agents and channels.
+The application uses an `Orchestrator` pattern ([`backend/orchestrator/`](backend/orchestrator/__init__.py:1)) to handle AI-powered messaging. It coordinates between different AI agents and channels.
 
 ### Components
 
@@ -63,7 +65,7 @@ The main orchestrator class manages:
 #### Agents
 
 Currently available agents:
-- **report_agent**: Handles report-related queries (list, view, update reports)
+- **report_agent**: Handles report-related queries (list, view, create, update reports)
 
 #### ChatHistory
 
@@ -556,30 +558,62 @@ The application uses a centralized logging module [`backend/init_logs.py`](backe
 
 ### Log Files
 
-| Logger         | Log File                   | Description                      |
-|----------------|----------------------------|----------------------------------|
-| `auth`         | `logs/auth.log`            | Authentication events            |
-| `twilio_logger`| `logs/twilio_webhook.log`  | Twilio webhook & reply events    |
-| `messages_logger` | `logs/messages.log`     | Message operations               |
-| `reports`      | `logs/reports.log`         | Report operations                |
-| `orchestrator` | stdout/stderr              | AI orchestration (prints to console) |
+| Logger             | Log File                   | Description                      |
+|--------------------|----------------------------|----------------------------------|
+| `auth_logger`      | `logs/auth.log`            | Authentication events            |
+| `twilio_logger`    | `logs/twilio_webhook.log`  | Twilio webhook & reply events    |
+| `messages_logger`  | `logs/messages.log`        | Message operations               |
+| `orchestrator_logger` | `logs/orchestrator.log`  | AI orchestration & agent debugging |
 
 ### Configuration
 
 Logs are stored in the folder specified by `AI_MESSAGE_LOGS_FOLDER` environment variable (default: `logs`). Each log file:
 - Maximum 1MB per file
 - Up to 50 backup files (50MB total)
-- Timestamped entries with logger name and level
+- Format: `%(asctime)s - %(name)s - %(levelname)s - %(message)s`
 
 ### Using Loggers
 
 ```python
-from init_logs import messages_logger
+from init_logs import messages_logger, orchestrator_logger
 
 # Log messages
 messages_logger.info("User sent a message")
+orchestrator_logger.info("Processing AI response")
 messages_logger.error("Failed to send message")
-messages_logger.warning("Message rate limit approaching")
+```
+
+### Adding New Loggers
+
+To add a new logger, edit `backend/init_logs.py`:
+
+```python
+# At the bottom of init_logs.py:
+reports_logger = setup_logger("reports", "reports.log")
+```
+
+Then import and use in your module:
+
+```python
+from init_logs import reports_logger
+reports_logger.info("Report created")
+```
+
+### AI Orchestrator Logging
+
+The `orchestrator_logger` provides detailed debugging for AI agents:
+
+```
+tail -f logs/orchestrator.log
+```
+
+Sample output:
+```
+2026-01-22 15:30:45,123 - orchestrator - INFO - User 1: make a report about... (history_len=1)
+2026-01-22 15:30:45,456 - orchestrator - INFO - Routing to agent: report_agent
+2026-01-22 15:30:46,789 - orchestrator - INFO - report_agent calling function: create_report
+2026-01-22 15:30:46,890 - orchestrator - INFO - report_agent create_report result: Report created successfully!
+```
 ```
 
 ## Security Notes
