@@ -2,8 +2,8 @@ import os
 import sys
 import json
 from datetime import datetime
-from fastapi import FastAPI, Depends, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Depends, Request, BackgroundTasks
+from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import uvicorn
@@ -23,6 +23,10 @@ load_dotenv()
 
 # Create tables on startup
 Base.metadata.create_all(bind=engine)
+
+# Setup AI orchestrator
+from orchestrator import setup_orchestrator
+setup_orchestrator()
 
 app = FastAPI(
     title="AI Message API",
@@ -62,11 +66,141 @@ async def db_test(db: Session = Depends(get_db)):
     return {"status": "database connection working"}
 
 
+def process_ai_response_task(user_id: int, message_content: str, conversation_id: str, channel: str = "twilio", original_from: str = "", is_whatsapp: bool = False):
+    """
+    Background task to process AI response for a message.
+
+    This is called automatically after a message is saved to trigger AI processing.
+    Sends the AI response back to the appropriate channel.
+    """
+    from orchestrator import get_orchestrator
+    from sqlalchemy.orm import Session
+    from db.config import get_db
+    from db.models import Message
+
+    try:
+        twilio_logger.info(f"[BackgroundTask] Processing AI response for user {user_id} via {channel} (whatsapp={is_whatsapp})")
+
+        # Get orchestrator
+        orchestrator = get_orchestrator()
+
+        # Get AI response
+        ai_response = orchestrator.process_message(user_id, message_content)
+        twilio_logger.info(f"[BackgroundTask] AI response generated: {ai_response[:100]}...")
+
+        # Save AI response as a new message
+        db: Session = next(get_db())
+        try:
+            ai_message = Message(
+                sender_id=-1,  # AI bot user ID
+                recipient_id=user_id,
+                content=ai_response,
+                conversation_id=conversation_id,
+                is_read=False
+            )
+            db.add(ai_message)
+            db.commit()
+            twilio_logger.info(f"[BackgroundTask] AI message saved: {ai_message.id}")
+        finally:
+            db.close()
+
+        # Send response back to the appropriate channel
+        if channel == "twilio" and original_from:
+            _send_twilio_reply(original_from, ai_response, is_whatsapp=is_whatsapp)
+
+    except Exception as e:
+        twilio_logger.error(f"[BackgroundTask] Error processing AI response: {e}")
+
+
+def _format_whatsapp_number(from_number: str) -> str:
+    """Format a WhatsApp number from URL-encoded format.
+
+    Twilio sends numbers as: whatsapp%3A%2B60127939038
+    Twilio API expects: whatsapp:+60127939038
+    """
+    from urllib.parse import unquote
+
+    # URL decode the number
+    decoded = unquote(from_number)
+
+    # If it's a WhatsApp number, ensure proper format
+    if decoded.lower().startswith("whatsapp:"):
+        # Remove any existing prefix issues and ensure clean format
+        # e.g., "whatsapp:+60127939038"
+        return decoded
+
+    return decoded
+
+
+def _send_twilio_reply(to_number: str, message: str, is_whatsapp: bool = False):
+    """Send reply via Twilio API (SMS or WhatsApp)."""
+    try:
+        from twilio.rest import Client
+        from dotenv import load_dotenv
+        import os
+
+        load_dotenv()
+
+        account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+        twilio_number = os.getenv("TWILIO_PHONE_NUMBER")
+
+        if not all([account_sid, auth_token, twilio_number]):
+            twilio_logger.warning("[Twilio] Missing Twilio credentials")
+            return
+
+        # Format the recipient number
+        recipient = _format_whatsapp_number(to_number)
+
+        # Get sender number and format for WhatsApp if needed
+        sender = twilio_number
+        if is_whatsapp:
+            # For WhatsApp, format both as whatsapp:...
+            recipient = f"whatsapp:{recipient}" if not recipient.lower().startswith("whatsapp:") else recipient
+            sender = f"whatsapp:{sender}" if not sender.lower().startswith("whatsapp:") else sender
+        else:
+            # For SMS, ensure plain format (remove whatsapp: prefix if present)
+            recipient = recipient.replace("whatsapp:", "") if recipient.lower().startswith("whatsapp:") else recipient
+            sender = sender.replace("whatsapp:", "") if sender.lower().startswith("whatsapp:") else sender
+
+        twilio_logger.info(f"[Twilio] Sending message: from={sender}, to={recipient}")
+
+        client = Client(account_sid, auth_token)
+        twilio_message = client.messages.create(
+            body=message,
+            from_=sender,
+            to=recipient
+        )
+        twilio_logger.info(f"[Twilio] Reply sent: {twilio_message.sid}")
+
+    except Exception as e:
+        twilio_logger.error(f"[Twilio] Failed to send reply: {e}")
+
+
+# =============================================================================
+# AI MESSAGE PROCESSING PATTERN
+# =============================================================================
+# When a message is saved (via any channel), the AI should automatically respond.
+# This is implemented using a background task to avoid blocking the webhook.
+#
+# Pattern for new channels (WhatsApp, Web, API, etc.):
+#   1. Save the incoming message to the database
+#   2. Trigger AI processing via BackgroundTasks
+#   3. Return success to the channel immediately
+#
+# The AI processing flow:
+#   - Message is saved → process_ai_response_task (BackgroundTasks)
+#   - Orchestrator checks message content for agent routing
+#   - If report-related → report_agent handles it
+#   - Otherwise → general conversational AI
+#   - AI response is saved as a new message
+# =============================================================================
+
 @app.post("/twilio_webhook")
-async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
+async def twilio_webhook(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
     Twilio webhook endpoint for incoming messages.
-    Logs raw request and saves to database if phone number matches a user.
+    Logs raw request, saves to database, and triggers AI processing in background.
     """
     # Get raw request body for logging
     try:
@@ -120,7 +254,7 @@ async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
 
     if user:
         twilio_logger.info(f"Found user {user.username} for phone number {from_number}")
-        
+
         # Create message record
         message = Message(
             sender_id=user.id,
@@ -131,8 +265,24 @@ async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
         db.add(message)
         db.commit()
         db.refresh(message)
-        
+
         twilio_logger.info(f"Saved message {message.id} for user {user.username}")
+
+        # Determine if this is WhatsApp (check for "whatsapp:" in From field)
+        is_whatsapp = "whatsapp:" in from_number.lower() or "whatsapp%3a" in from_number.lower()
+
+        # Trigger AI processing in background (non-blocking)
+        background_tasks.add_task(
+            process_ai_response_task,
+            user_id=user.id,
+            message_content=message_body,
+            conversation_id=message_sid or from_number,
+            channel="twilio",
+            original_from=from_number,
+            is_whatsapp=is_whatsapp
+        )
+        twilio_logger.info(f"[BackgroundTask] Queued AI processing for message {message.id}")
+
         return {"status": "message saved", "user_id": user.id, "message_id": message.id}
     else:
         twilio_logger.warning(f"No user found for phone number {from_number}")

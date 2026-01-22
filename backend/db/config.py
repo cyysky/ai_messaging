@@ -7,7 +7,7 @@ load_dotenv()
 
 # Database URL from environment variable
 DATABASE_URL = os.getenv(
-    "AI_MESSAGE_DATABASE_URL",""  # Default to SQLite for development
+    "AI_MESSAGE_DATABASE_URL", "sqlite:///./backend/dev.db"  # Default to local SQLite for development
 )
 
 # For SQLite, we need to add check_same_thread=False for async support

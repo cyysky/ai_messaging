@@ -70,6 +70,14 @@ npm run dev
 | `AI_MESSAGE_SSL_KEY` | SSL private key path | `ssl/key.pem` |
 | `AI_MESSAGE_LOGS_FOLDER` | Logs directory | `logs` |
 
+### Twilio Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `TWILIO_ACCOUNT_SID` | Twilio Account SID | - |
+| `TWILIO_AUTH_TOKEN` | Twilio Auth Token | - |
+| `TWILIO_PHONE_NUMBER` | Twilio phone number (for sending) | - |
+
 ## Logging
 
 The application uses centralized logging configured in [`backend/init_logs.py`](backend/init_logs.py:1). Log files are stored in the `logs/` directory by default.
@@ -77,7 +85,7 @@ The application uses centralized logging configured in [`backend/init_logs.py`](
 | Logger | Log File | Description |
 |--------|----------|-------------|
 | `auth` | `logs/auth.log` | Authentication events |
-| `twilio_webhook` | `logs/twilio_webhook.log` | Twilio webhook events |
+| `twilio_webhook` | `logs/twilio_webhook.log` | Twilio webhook & reply events |
 | `messages` | `logs/messages.log` | Message operations |
 | `reports` | `logs/reports.log` | Report operations |
 
@@ -132,11 +140,50 @@ To enable HTTPS for the frontend dev server:
 | GET | `/messages/received` | List received messages |
 | GET | `/messages/{id}` | Get specific message |
 | POST | `/messages` | Send new message |
+| POST | `/messages` (recipient_id=-1) | Send to AI bot (auto-response) |
 | PUT | `/messages/{id}` | Update message |
 | PUT | `/messages/{id}/read` | Mark as read |
 | DELETE | `/messages/{id}` | Delete message |
 | GET | `/messages/unread/count` | Get unread count |
 | PUT | `/messages/read-all` | Mark all as read |
+| POST | `/messages/ai` | Send message to AI (sync response) |
+| GET | `/messages/history` | Get chat history |
+| DELETE | `/messages/history/clear` | Clear chat history |
+
+#### AI Message Integration
+
+**Pattern 1: Non-blocking (Recommended for webhooks)**
+```bash
+POST /messages
+{
+  "recipient_id": -1,  # AI_BOT_USER_ID
+  "content": "Show my reports"
+}
+```
+- Message is saved to database
+- AI processing happens in background via BackgroundTasks
+- Returns user message immediately
+- AI response is saved asynchronously
+
+**Pattern 2: Synchronous (For immediate response)**
+```bash
+POST /messages/ai
+{
+  "content": "Show my reports"
+}
+```
+- Waits for AI processing
+- Returns AI response directly
+- Both user and AI messages saved to database
+
+**Pattern 3: Webhook (Twilio)**
+```bash
+POST /twilio_webhook
+```
+- Twilio sends incoming SMS
+- Message is saved
+- AI processing triggered in background
+- AI response returned to Twilio for delivery
 
 ### Reports (`/reports`)
 
@@ -157,3 +204,99 @@ To enable HTTPS for the frontend dev server:
 | POST | `/twilio_webhook` | Twilio incoming message webhook |
 
 All endpoints except `/twilio_webhook` and `/auth/register` require authentication via JWT Bearer token.
+
+## AI Message Processing
+
+### Architecture
+
+```
+[Channel: Twilio/Web/API] → Save Message → BackgroundTasks → Orchestrator → [Agent]
+                                                                          → AI Response
+                                                                          → Save Response
+```
+
+### Chat History
+
+- Maximum 50 entries (user + assistant messages only)
+- Managed by `ChatHistory` class in `backend/orchestrator.py`
+- Stored in memory (per server instance)
+- Accessible via `/messages/history` endpoint
+
+### AI Agents
+
+| Agent | Description | Functions |
+|-------|-------------|-----------|
+| `report_agent` | Report management | get_my_reports, get_report, update_report |
+| General | Conversational AI | General questions and responses |
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LITELLM_BASEURL` | LiteLLM API base URL | - |
+| `LITELLM_API_KEY` | LiteLLM API key | - |
+| `LITELLM_MODEL` | Model name | `gpt-3.5-turbo-1106` |
+| `CHAT_HISTORY_MAX` | Max chat history entries | `50` |
+| `AI_BOT_USER_ID` | User ID for AI bot | `-1` |
+
+### Adding New Agents
+
+1. Create agent in `example-agent/` (see `report_agent.py` for pattern)
+2. Register in `backend/orchestrator.py` via `setup_orchestrator()`
+3. Agent pattern requires: `SYSTEM_PROMPT`, `TOOLS`, `chat_func()`
+
+### Twilio Integration
+
+The application supports WhatsApp messaging via Twilio. Messages sent to your Twilio number are processed through the AI orchestrator and replies are sent back automatically.
+
+#### Setup
+
+1. Create a Twilio account and get a phone number with WhatsApp
+2. Add credentials to `.env`:
+   ```
+   TWILIO_ACCOUNT_SID=your_sid
+   TWILIO_AUTH_TOKEN=your_token
+   TWILIO_PHONE_NUMBER=whatsapp:+1234567890
+   ```
+3. Configure the webhook in Twilio Console:
+   - **A Message Comes In**: `https://yourdomain.com/twilio_webhook`
+   - **Method**: POST
+
+#### Message Flow (Twilio/WhatsApp)
+
+```
+User sends WhatsApp message
+         ↓
+Twilio POSTs to /twilio_webhook
+         ↓
+Save message to database
+         ↓
+Look up user by phone number
+         ↓
+Trigger BackgroundTasks for AI processing
+         ↓
+Return 200 OK to Twilio immediately
+         ↓
+Orchestrator processes message
+         ↓
+AI response saved to database
+         ↓
+Send reply via Twilio API (whatsapp:+user_number)
+         ↓
+User receives WhatsApp reply
+```
+
+#### Multi-Channel Support
+
+The `process_ai_response_task` function supports multiple channels:
+
+| Channel | Description |
+|---------|-------------|
+| `twilio` | SMS or WhatsApp via Twilio API |
+| `telegram` | Telegram Bot API (TODO) |
+| `web` | Web UI responses (already in DB) |
+
+For new channels:
+1. Create webhook endpoint similar to `/twilio_webhook`
+2. Pass `channel`, `original_from`, and `is_whatsapp` to background task
+3. Implement channel-specific reply logic

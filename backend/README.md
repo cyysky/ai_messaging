@@ -39,9 +39,149 @@ backend/
 │   ├── test_messages.py  # Messages tests
 │   └── test_reports.py   # Reports tests
 ├── main.py               # FastAPI application entry point
+├── orchestrator.py       # AI message orchestration
 ├── init_logs.py          # Logging configuration
 ├── alembic.ini           # Alembic configuration
 └── requirements.txt      # Python dependencies
+```
+
+## AI Message Orchestration
+
+### Overview
+
+The application uses an `Orchestrator` pattern ([`backend/orchestrator.py`](backend/orchestrator.py:119)) to handle AI-powered messaging. It coordinates between different AI agents and channels.
+
+### Components
+
+#### MessageOrchestrator
+
+The main orchestrator class manages:
+- Chat history per user conversation
+- Agent registration and routing
+- Message processing pipeline
+
+#### Agents
+
+Currently available agents:
+- **report_agent**: Handles report-related queries (list, view, update reports)
+
+#### ChatHistory
+
+Manages conversation context with:
+- Maximum history length (configurable, default: 50 messages)
+- Automatic trimming of old messages
+- User/assistant message pairs
+
+### Message Flow
+
+```
+Incoming Message (Twilio/Web/API)
+         ↓
+    Save to Database
+         ↓
+    Trigger Background Task
+         ↓
+    Orchestrator.process_message()
+         ↓
+    Route to appropriate agent OR handle conversation
+         ↓
+    Save AI response to database
+         ↓
+    Send response back via channel (Twilio/Telegram/etc)
+```
+
+### Using the Orchestrator
+
+```python
+from orchestrator import get_orchestrator, setup_orchestrator
+
+# Setup (called once at startup)
+orchestrator = setup_orchestrator()
+
+# Get orchestrator instance
+orchestrator = get_orchestrator()
+
+# Process a message
+response = orchestrator.process_message(user_id, "Hello AI!")
+```
+
+### Multi-Channel Support
+
+Channels are identified by the `channel` parameter in `process_ai_response_task`:
+
+| Channel   | Description              |
+|-----------|--------------------------|
+| `twilio`  | SMS messaging via Twilio API |
+| `telegram`| Telegram Bot API (TODO)  |
+| `web`     | Web UI responses (already in DB) |
+
+### Environment Variables for AI
+
+| Variable          | Description                  | Default            |
+|-------------------|------------------------------|--------------------|
+| `LITELLM_BASEURL` | LiteLLM API base URL         | `http://localhost:5678` |
+| `LITELLM_API_KEY` | LiteLLM API key              | `sk-....`          |
+| `LITELLM_MODEL`   | Model to use                 | `openai/....`      |
+| `CHAT_HISTORY_MAX`| Max chat history entries     | `50`               |
+
+## Twilio Integration
+
+### Overview
+
+The application integrates with Twilio for SMS messaging via the `/twilio_webhook` endpoint.
+
+### Webhook Endpoint
+
+```
+POST /twilio_webhook
+```
+
+Twilio sends SMS messages to this endpoint, which:
+1. Parses the incoming message
+2. Looks up user by phone number
+3. Saves message to database
+4. Triggers AI processing
+5. Sends AI response back via Twilio API
+
+### Twilio Configuration
+
+| Variable              | Description             | Required |
+|-----------------------|-------------------------|----------|
+| `TWILIO_ACCOUNT_SID`  | Twilio Account SID      | Yes      |
+| `TWILIO_AUTH_TOKEN`   | Twilio Auth Token       | Yes      |
+| `TWILIO_PHONE_NUMBER` | Twilio phone number     | Yes      |
+
+### TwiML Response
+
+The webhook returns an empty response (200 OK) after queuing the background task. AI replies are sent separately via the Twilio API.
+
+### Setting Up Twilio Webhook
+
+1. Create a Twilio account and get credentials
+2. Set environment variables in `.env`
+3. Configure your phone number's webhook in Twilio Console:
+   - **A Message Comes In**: Your HTTPS endpoint (e.g., `https://yourdomain.com/twilio_webhook`)
+   - **Method**: POST
+
+### Adding New Channels
+
+For adding new channels (Telegram, WhatsApp, etc.):
+
+1. Create a webhook endpoint similar to `/twilio_webhook`
+2. Pass `channel` and `original_from` to `process_ai_response_task`
+3. Implement channel-specific reply logic in the background task
+
+Example:
+
+```python
+background_tasks.add_task(
+    process_ai_response_task,
+    user_id=user.id,
+    message_content=message_body,
+    conversation_id=conv_id,
+    channel="telegram",
+    original_from=telegram_chat_id
+)
 ```
 
 ## Authentication System
@@ -416,12 +556,13 @@ The application uses a centralized logging module [`backend/init_logs.py`](backe
 
 ### Log Files
 
-| Logger | Log File | Description |
-|--------|----------|-------------|
-| `auth` | `logs/auth.log` | Authentication events |
-| `twilio_webhook` | `logs/twilio_webhook.log` | Twilio webhook events |
-| `messages` | `logs/messages.log` | Message operations |
-| `reports` | `logs/reports.log` | Report operations |
+| Logger         | Log File                   | Description                      |
+|----------------|----------------------------|----------------------------------|
+| `auth`         | `logs/auth.log`            | Authentication events            |
+| `twilio_logger`| `logs/twilio_webhook.log`  | Twilio webhook & reply events    |
+| `messages_logger` | `logs/messages.log`     | Message operations               |
+| `reports`      | `logs/reports.log`         | Report operations                |
+| `orchestrator` | stdout/stderr              | AI orchestration (prints to console) |
 
 ### Configuration
 
