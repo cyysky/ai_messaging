@@ -117,6 +117,9 @@ class MessageCreate(BaseModel):
     recipient_id: int
     content: str
     conversation_id: Optional[str] = None
+    media_url: Optional[str] = None
+    media_type: Optional[str] = None
+    media_filename: Optional[str] = None
 
 
 class MessageUpdate(BaseModel):
@@ -132,6 +135,9 @@ class MessageResponse(BaseModel):
     conversation_id: Optional[str]
     created_at: datetime
     updated_at: datetime
+    media_url: Optional[str] = None
+    media_type: Optional[str] = None
+    media_filename: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -175,6 +175,50 @@ To enable HTTPS for the frontend dev server:
 | POST | `/messages/ai` | Send message to AI (sync response) |
 | GET | `/messages/history` | Get chat history |
 | DELETE | `/messages/history/clear` | Clear chat history |
+| POST | `/messages/upload` | Upload media file (image/PDF) |
+| GET | `/messages/media/{filename}` | Retrieve media file |
+
+#### Media File Support
+
+Messages can include media attachments (images and PDFs).
+
+**Supported File Types:**
+- Images: JPEG, PNG, GIF, WebP
+- Documents: PDF
+
+**Max File Size:** 10MB
+
+**Upload a file:**
+```bash
+POST /messages/upload
+Content-Type: multipart/form-data
+
+file: <binary file data>
+```
+
+**Response:**
+```json
+{
+  "media_url": "/api/messages/media/1_20260203_054053_31a28a26_filename.jpg",
+  "media_type": "image/jpeg",
+  "media_filename": "filename.jpg",
+  "message": "File uploaded successfully"
+}
+```
+
+**Send message with media:**
+```bash
+POST /messages
+{
+  "recipient_id": 2,
+  "content": "Check out this image!",
+  "media_url": "/api/messages/media/1_20260203_054053_31a28a26_filename.jpg",
+  "media_type": "image/jpeg",
+  "media_filename": "filename.jpg"
+}
+```
+
+**Security Note:** Media files are served without authentication but use random UUIDs in filenames for security through obscurity.
 
 #### AI Message Integration
 
@@ -208,6 +252,22 @@ POST /twilio_webhook
 ```
 - Twilio sends incoming SMS
 - Message is saved
+
+#### Message Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Message ID |
+| `sender_id` | integer | Sender user ID |
+| `recipient_id` | integer | Recipient user ID |
+| `content` | string | Message text content |
+| `is_read` | boolean | Read status |
+| `conversation_id` | string | Conversation identifier |
+| `media_url` | string | URL to media file (optional) |
+| `media_type` | string | MIME type of media (optional) |
+| `media_filename` | string | Original filename (optional) |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Update timestamp |
 - AI processing triggered in background
 - AI response returned to Twilio for delivery
 

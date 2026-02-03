@@ -1,7 +1,13 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, UploadFile, File
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+import os
+import shutil
+from pathlib import Path
+from datetime import datetime
+import uuid
 
 from db.config import get_db
 from db.models import User, Message
@@ -11,9 +17,43 @@ from init_logs import messages_logger
 
 # Import orchestrator for AI message handling
 import sys
-import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from orchestrator import get_orchestrator, setup_orchestrator
+
+# File upload configuration
+UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR.mkdir(exist_ok=True)
+MEDIA_DIR = UPLOAD_DIR / "media"
+MEDIA_DIR.mkdir(exist_ok=True)
+
+# Allowed file types and max size (10MB)
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+ALLOWED_DOCUMENT_TYPES = {"application/pdf"}
+ALLOWED_MEDIA_TYPES = ALLOWED_IMAGE_TYPES | ALLOWED_DOCUMENT_TYPES
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
+def validate_file_type(content_type: str) -> bool:
+    """Check if file type is allowed"""
+    return content_type in ALLOWED_MEDIA_TYPES
+
+def save_upload_file(upload_file: UploadFile, sender_id: int) -> tuple[str, str, str]:
+    """Save uploaded file and return (file_path, media_url, media_type)"""
+    # Generate unique filename
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    unique_id = uuid.uuid4().hex[:8]
+    original_filename = upload_file.filename or "unnamed"
+    safe_filename = f"{sender_id}_{timestamp}_{unique_id}_{original_filename}"
+
+    file_path = MEDIA_DIR / safe_filename
+
+    # Save file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(upload_file.file, buffer)
+
+    # Generate relative URL
+    media_url = f"/api/messages/media/{safe_filename}"
+
+    return str(file_path), media_url, upload_file.content_type or "application/octet-stream"
 
 # AI bot user ID (negative ID to distinguish from real users)
 AI_BOT_USER_ID = -1
@@ -187,7 +227,10 @@ async def create_message(
         sender_id=current_user.id,
         recipient_id=message_data.recipient_id,
         content=message_data.content,
-        conversation_id=conversation_id
+        conversation_id=conversation_id,
+        media_url=message_data.media_url,
+        media_type=message_data.media_type,
+        media_filename=message_data.media_filename
     )
 
     db.add(message)
@@ -432,3 +475,106 @@ async def get_chat_history(
         "history": history.get_history(),
         "message_count": len(history)
     }
+
+
+# =============================================================================
+# FILE UPLOAD ENDPOINTS
+# =============================================================================
+
+@router.post("/upload", response_model=dict)
+async def upload_media_file(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Upload a media file (image or PDF) for use in messages.
+
+    Supported file types:
+    - Images: JPEG, PNG, GIF, WebP
+    - Documents: PDF
+
+    Max file size: 10MB
+
+    Returns a media_url that can be used when sending messages.
+    """
+    # Validate file type
+    content_type = file.content_type or "application/octet-stream"
+    if not validate_file_type(content_type):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File type '{content_type}' not allowed. Allowed types: JPEG, PNG, GIF, WebP, PDF"
+        )
+
+    # Validate file size by reading content
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File too large. Maximum size is {MAX_FILE_SIZE / (1024 * 1024):.0f}MB"
+        )
+
+    # Reset file position for saving
+    await file.seek(0)
+
+    try:
+        file_path, media_url, media_type = save_upload_file(file, current_user.id)
+        messages_logger.info(f"File uploaded by user {current_user.id}: {file.filename} -> {media_url}")
+
+        return {
+            "media_url": media_url,
+            "media_type": media_type,
+            "media_filename": file.filename,
+            "message": "File uploaded successfully"
+        }
+    except Exception as e:
+        messages_logger.error(f"File upload error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload file"
+        )
+
+
+@router.get("/media/{filename}")
+async def serve_media_file(filename: str):
+    """Serve a media file. Files are secured via random UUID in filename."""
+    # Security: prevent directory traversal
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid filename"
+        )
+
+    file_path = MEDIA_DIR / filename
+
+    # Security: ensure file is within MEDIA_DIR
+    try:
+        file_path.resolve().relative_to(MEDIA_DIR.resolve())
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid filename"
+        )
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found"
+        )
+
+    # Determine content type
+    content_type = "application/octet-stream"
+    if filename.lower().endswith(('.jpg', '.jpeg')):
+        content_type = "image/jpeg"
+    elif filename.lower().endswith('.png'):
+        content_type = "image/png"
+    elif filename.lower().endswith('.gif'):
+        content_type = "image/gif"
+    elif filename.lower().endswith('.webp'):
+        content_type = "image/webp"
+    elif filename.lower().endswith('.pdf'):
+        content_type = "application/pdf"
+
+    return FileResponse(
+        path=str(file_path),
+        media_type=content_type,
+        filename=filename
+    )

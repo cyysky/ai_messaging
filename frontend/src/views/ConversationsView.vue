@@ -68,9 +68,43 @@
                   <v-chip size="x-small" class="ml-2" :color="message.is_read ? 'success' : 'warning'" variant="flat">
                     {{ message.is_read ? 'Read' : 'Unread' }}
                   </v-chip>
+                  <!-- Media indicator -->
+                  <v-icon
+                    v-if="message.media_url"
+                    size="small"
+                    color="primary"
+                    class="ml-2"
+                    :title="getMediaTitle(message)"
+                  >
+                    {{ getMediaIcon(message.media_type) }}
+                  </v-icon>
                 </v-list-item-title>
                 <v-list-item-subtitle class="text-truncate" style="max-width: 300px">
                   {{ message.content }}
+                </v-list-item-subtitle>
+                <!-- Media preview for images -->
+                <v-list-item-subtitle v-if="message.media_url && isImageMedia(message.media_type)" class="mt-2">
+                  <v-img
+                    :src="message.media_url"
+                    max-width="200"
+                    max-height="150"
+                    contain
+                    class="rounded cursor-pointer"
+                    @click="openMediaDialog(message)"
+                  ></v-img>
+                </v-list-item-subtitle>
+                <!-- PDF link -->
+                <v-list-item-subtitle v-else-if="message.media_url && isPdfMedia(message.media_type)" class="mt-1">
+                  <v-chip
+                    size="small"
+                    color="error"
+                    variant="outlined"
+                    class="cursor-pointer"
+                    @click="downloadMedia(message)"
+                  >
+                    <v-icon left size="small">mdi-file-pdf-box</v-icon>
+                    {{ message.media_filename || 'PDF Document' }}
+                  </v-chip>
                 </v-list-item-subtitle>
                 <v-list-item-subtitle class="text-caption mt-1 text-medium-emphasis">
                   {{ formatDate(message.created_at) }}
@@ -174,9 +208,51 @@
           <v-textarea
             v-model="newMessage.content"
             label="Message"
-            rows="4"
+            rows="3"
             required
           ></v-textarea>
+
+          <!-- File Upload Section -->
+          <v-divider class="my-3"></v-divider>
+
+          <!-- Selected File Preview -->
+          <div v-if="selectedFile" class="mb-3">
+            <v-card variant="outlined" class="pa-2">
+              <div class="d-flex align-center">
+                <v-icon v-if="isImageFile(selectedFile.type)" color="primary" class="mr-2">mdi-image</v-icon>
+                <v-icon v-else-if="isPdfFile(selectedFile.type)" color="error" class="mr-2">mdi-file-pdf-box</v-icon>
+                <v-icon v-else color="grey" class="mr-2">mdi-file</v-icon>
+                <span class="text-truncate flex-grow-1">{{ selectedFile.name }}</span>
+                <v-btn icon size="small" variant="text" color="error" @click="clearSelectedFile">
+                  <v-icon>mdi-close</v-icon>
+                </v-btn>
+              </div>
+              <!-- Image Preview -->
+              <v-img
+                v-if="filePreviewUrl && isImageFile(selectedFile.type)"
+                :src="filePreviewUrl"
+                max-height="150"
+                contain
+                class="mt-2 rounded"
+              ></v-img>
+            </v-card>
+          </div>
+
+          <!-- File Upload Button -->
+          <v-file-input
+            v-model="fileInput"
+            accept="image/*,.pdf"
+            label="Attach file (optional)"
+            prepend-icon="mdi-paperclip"
+            variant="outlined"
+            density="comfortable"
+            :loading="uploadingFile"
+            @update:model-value="onFileSelected"
+            hide-details
+          ></v-file-input>
+          <div class="text-caption text-medium-emphasis mt-1">
+            Supported: JPEG, PNG, GIF, WebP, PDF (max 10MB)
+          </div>
         </v-card-text>
         <v-card-actions class="pa-4">
           <v-spacer></v-spacer>
@@ -222,9 +298,45 @@
           <v-textarea
             v-model="replyMessage.content"
             label="Reply"
-            rows="4"
+            rows="3"
             required
           ></v-textarea>
+
+          <!-- File Upload Section -->
+          <v-divider class="my-3"></v-divider>
+
+          <!-- Selected File Preview -->
+          <div v-if="replySelectedFile" class="mb-3">
+            <v-card variant="outlined" class="pa-2">
+              <div class="d-flex align-center">
+                <v-icon v-if="isImageFile(replySelectedFile.type)" color="primary" class="mr-2">mdi-image</v-icon>
+                <v-icon v-else-if="isPdfFile(replySelectedFile.type)" color="error" class="mr-2">mdi-file-pdf-box</v-icon>
+                <v-icon v-else color="grey" class="mr-2">mdi-file</v-icon>
+                <span class="text-truncate flex-grow-1">{{ replySelectedFile.name }}</span>
+                <v-btn icon size="small" variant="text" color="error" @click="clearReplySelectedFile">
+                  <v-icon>mdi-close</v-icon>
+                </v-btn>
+              </div>
+              <v-img
+                v-if="replyFilePreviewUrl && isImageFile(replySelectedFile.type)"
+                :src="replyFilePreviewUrl"
+                max-height="150"
+                contain
+                class="mt-2 rounded"
+              ></v-img>
+            </v-card>
+          </div>
+
+          <v-file-input
+            v-model="replyFileInput"
+            accept="image/*,.pdf"
+            label="Attach file (optional)"
+            prepend-icon="mdi-paperclip"
+            variant="outlined"
+            density="comfortable"
+            @update:model-value="onReplyFileSelected"
+            hide-details
+          ></v-file-input>
         </v-card-text>
         <v-card-actions class="pa-4">
           <v-spacer></v-spacer>
@@ -272,6 +384,12 @@ watch(showNewMessageDialog, (val) => {
 
 const selectedMessage = ref<MessageResponse | null>(null)
 
+// File upload
+const fileInput = ref<File[]>([])
+const selectedFile = ref<File | null>(null)
+const filePreviewUrl = ref<string | null>(null)
+const uploadingFile = ref(false)
+
 const filteredMessages = computed(() => {
   let filtered = messages.value
 
@@ -293,14 +411,14 @@ const filteredMessages = computed(() => {
   return filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 })
 
-function getUserInitials(message: MessageResponse): string {
-  if (message.sender_id === currentUserId.value) {
+function getUserInitials(_message: MessageResponse): string {
+  if (_message.sender_id === currentUserId.value) {
     return 'Y'
   }
   return 'U'
 }
 
-function getOtherUserName(message: MessageResponse): string {
+function getOtherUserName(_message: MessageResponse): string {
   return 'User' // In a real app, you'd fetch the username
 }
 
@@ -337,13 +455,98 @@ async function loadMessages() {
   }
 }
 
+function isImageFile(type: string): boolean {
+  return type?.startsWith('image/') || false
+}
+
+function isPdfFile(type: string): boolean {
+  return type === 'application/pdf'
+}
+
+function isImageMedia(type: string | null): boolean {
+  return type?.startsWith('image/') || false
+}
+
+function isPdfMedia(type: string | null): boolean {
+  return type === 'application/pdf'
+}
+
+function getMediaIcon(type: string | null): string {
+  if (isImageMedia(type)) return 'mdi-image'
+  if (isPdfMedia(type)) return 'mdi-file-pdf-box'
+  return 'mdi-file'
+}
+
+function getMediaTitle(message: MessageResponse): string {
+  if (isImageMedia(message.media_type)) return 'Image attached'
+  if (isPdfMedia(message.media_type)) return 'PDF attached'
+  return 'File attached'
+}
+
+function onFileSelected(files: File | File[]) {
+  const fileList = Array.isArray(files) ? files : [files]
+  if (fileList && fileList.length > 0 && fileList[0]) {
+    selectedFile.value = fileList[0]
+    // Create preview for images
+    if (isImageFile(selectedFile.value.type)) {
+      filePreviewUrl.value = URL.createObjectURL(selectedFile.value)
+    } else {
+      filePreviewUrl.value = null
+    }
+  }
+}
+
+function clearSelectedFile() {
+  selectedFile.value = null
+  filePreviewUrl.value = null
+  fileInput.value = []
+}
+
+function openMediaDialog(message: MessageResponse) {
+  if (message.media_url) {
+    window.open(message.media_url, '_blank')
+  }
+}
+
+function downloadMedia(message: MessageResponse) {
+  if (message.media_url) {
+    const link = document.createElement('a')
+    link.href = message.media_url
+    link.download = message.media_filename || 'download'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+}
+
 async function sendMessage() {
   if (!newMessage.value.recipient_id || !newMessage.value.content) return
 
   sending.value = true
   try {
-    await messageService.createMessage(newMessage.value)
+    let messageData = { ...newMessage.value }
+
+    // Upload file if selected
+    if (selectedFile.value) {
+      uploadingFile.value = true
+      try {
+        const uploadResponse = await messageService.uploadMedia(selectedFile.value)
+        messageData.media_url = uploadResponse.media_url
+        messageData.media_type = uploadResponse.media_type
+        messageData.media_filename = uploadResponse.media_filename
+      } catch (error) {
+        console.error('Failed to upload file:', error)
+        alert('Failed to upload file. Please try again.')
+        return
+      } finally {
+        uploadingFile.value = false
+      }
+    }
+
+    await messageService.createMessage(messageData)
     showNewMessageDialog.value = false
+    clearSelectedFile()
+    newMessage.value = { recipient_id: currentUserId.value || 0, content: '' }
     await loadMessages()
   } catch (error) {
     console.error('Failed to send message:', error)
@@ -402,23 +605,64 @@ async function markAllAsRead() {
   }
 }
 
+// Reply file upload
+const replyFileInput = ref<File[]>([])
+const replySelectedFile = ref<File | null>(null)
+const replyFilePreviewUrl = ref<string | null>(null)
+
+function onReplyFileSelected(files: File | File[]) {
+  const fileList = Array.isArray(files) ? files : [files]
+  if (fileList && fileList.length > 0 && fileList[0]) {
+    replySelectedFile.value = fileList[0]
+    if (isImageFile(replySelectedFile.value.type)) {
+      replyFilePreviewUrl.value = URL.createObjectURL(replySelectedFile.value)
+    } else {
+      replyFilePreviewUrl.value = null
+    }
+  }
+}
+
+function clearReplySelectedFile() {
+  replySelectedFile.value = null
+  replyFilePreviewUrl.value = null
+  replyFileInput.value = []
+}
+
 function openReplyDialog(message: MessageResponse) {
   selectedMessage.value = message
   replyMessage.value = {
     recipient_id: message.sender_id,
     content: ''
   }
+  clearReplySelectedFile()
   showReplyDialog.value = true
 }
 
 async function sendReply() {
   if (!replyMessage.value.recipient_id || !replyMessage.value.content) return
-  
+
   sending.value = true
   try {
-    await messageService.createMessage(replyMessage.value)
+    let messageData = { ...replyMessage.value }
+
+    // Upload file if selected
+    if (replySelectedFile.value) {
+      try {
+        const uploadResponse = await messageService.uploadMedia(replySelectedFile.value)
+        messageData.media_url = uploadResponse.media_url
+        messageData.media_type = uploadResponse.media_type
+        messageData.media_filename = uploadResponse.media_filename
+      } catch (error) {
+        console.error('Failed to upload file:', error)
+        alert('Failed to upload file. Please try again.')
+        return
+      }
+    }
+
+    await messageService.createMessage(messageData)
     showReplyDialog.value = false
     replyMessage.value = { recipient_id: 0, content: '' }
+    clearReplySelectedFile()
     await loadMessages()
   } catch (error) {
     console.error('Failed to send reply:', error)

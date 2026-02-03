@@ -89,15 +89,20 @@ class RefreshToken(BaseModel):
 class Message(BaseModel):
     """Message model - compatible with SQLite and PostgreSQL"""
     __tablename__ = "messages"
-    
+
     sender_id = Column(Integer, index=True, nullable=False)
     recipient_id = Column(Integer, index=True, nullable=False)
     content = Column(Text, nullable=False)
     is_read = Column(Boolean, default=False)
-    
+
     # Optional: for message threading
     parent_id = Column(Integer, nullable=True)
     conversation_id = Column(String(100), index=True, nullable=True)
+
+    # Media file support
+    media_url = Column(String(500), nullable=True)  # URL/path to the media file
+    media_type = Column(String(50), nullable=True)  # MIME type: image/jpeg, image/png, application/pdf
+    media_filename = Column(String(255), nullable=True)  # Original filename
 
 
 class Report(BaseModel):

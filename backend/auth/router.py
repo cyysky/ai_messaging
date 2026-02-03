@@ -738,7 +738,10 @@ async def send_message(
         sender_id=current_user.id,
         recipient_id=message_data.recipient_id,
         content=message_data.content,
-        conversation_id=conversation_id
+        conversation_id=conversation_id,
+        media_url=message_data.media_url,
+        media_type=message_data.media_type,
+        media_filename=message_data.media_filename
     )
     
     db.add(message)

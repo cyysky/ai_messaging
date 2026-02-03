@@ -66,6 +66,9 @@ export interface MessageResponse {
   conversation_id: string | null
   created_at: string
   updated_at: string
+  media_url: string | null
+  media_type: string | null
+  media_filename: string | null
 }
 
 export interface ConversationResponse {
@@ -81,6 +84,16 @@ export interface MessageCreate {
   recipient_id: number
   content: string
   conversation_id?: string
+  media_url?: string
+  media_type?: string
+  media_filename?: string
+}
+
+export interface MediaUploadResponse {
+  media_url: string
+  media_type: string
+  media_filename: string
+  message: string
 }
 
 export interface MessageUpdate {
@@ -139,6 +152,36 @@ export const messageService = {
       params: { skip, limit, unread_only: unreadOnly }
     })
     return response.data
+  },
+
+  async uploadMedia(file: File): Promise<MediaUploadResponse> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await api.post<MediaUploadResponse>('/messages/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    return response.data
+  },
+
+  getMediaUrl(mediaUrl: string): string {
+    // Convert relative URL to full URL
+    if (mediaUrl.startsWith('/api/')) {
+      return mediaUrl
+    }
+    return mediaUrl
+  },
+
+  isImageMedia(mediaType: string | null): boolean {
+    if (!mediaType) return false
+    return mediaType.startsWith('image/')
+  },
+
+  isPdfMedia(mediaType: string | null): boolean {
+    if (!mediaType) return false
+    return mediaType === 'application/pdf'
   }
 }
 
