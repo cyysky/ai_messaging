@@ -19,3 +19,6 @@ ssl/*.pem
 .venv
 
 *.log
+
+# Uploads directory (user files)
+uploads/
